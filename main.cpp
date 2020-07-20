@@ -31,7 +31,6 @@ bool etatLedBarreVoulu = 0;
 bool etatLedLampe = 0;
 bool etatLedLampeVoulu = 0;
 
-unsigned long TempsTemporaire = 1000000000;
 unsigned long previousLampe = 0;
 unsigned long previousBarre = 0;
 unsigned long ValeurTempsDeVapo = 30 * Seconde;
