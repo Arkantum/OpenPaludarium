@@ -4,36 +4,40 @@
 #include <DHT.h>
 #include <time.h>
 #include <FastLED.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define DHTPIN 27
-#define DHTTYPE DHT22
-
+#define DHTPIN2 18
+#define ONE_WIRE_BUS 32
 #define DATA_PIN 21
+#define LED_BUILTIN 2
+const int PompePIN = 5;
+
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+#define DHTTYPE2 DHT11
+DHT dht2(DHTPIN2, DHTTYPE2);
+
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS 60
 #define BRIGHTNESS 255
 
-#define LED_BUILTIN 2
-
 const char *ssid = "Home";
 const char *password = "zimmermann@jel@14";
-
-const int ledBarre = 21;
-const int ledLampe = 32;
-const int PompePIN = 5;
 
 const int Seconde = 1000;
 const int Heure = Seconde * 3600;
 
 bool etatLedBarre = 0;
 bool etatLedBarreVoulu = 0;
-bool etatLedLampe = 0;
-bool etatLedLampeVoulu = 0;
 
+unsigned long TempsTemporaire = 1000000000;
 unsigned long previousLampe = 0;
 unsigned long previousBarre = 0;
-unsigned long ValeurTempsDeVapo = 30 * Seconde;
+unsigned long ValeurTempsDeVapo = 20 * Seconde;
 unsigned long TempsMinutes = 0;
 String TempsActuel = "00:00";
 String HeureActuel = "0";
@@ -44,10 +48,12 @@ int resultMinutes = 0;
 int resultSeconde = 0;
 
 float temp = 20.0;
+float temp2 = 20.0;
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 
 AsyncWebServer server(80);
-
-DHT dht(DHTPIN, DHTTYPE);
 
 const char *ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 3600;
@@ -73,7 +79,7 @@ void printLocalTimeServeur()
 void sunrise()
 {
   static const uint8_t sunriseLength = 30;
-  static const uint8_t interval = (sunriseLength * 60) / 256;
+  static const uint8_t interval = (sunriseLength * 60) / 200;
 
   static uint8_t heatIndex = 0;
 
@@ -83,11 +89,11 @@ void sunrise()
 
   EVERY_N_SECONDS(interval)
   {
-    if (heatIndex < 255)
+    if (heatIndex < 200)
     {
       heatIndex++;
     }
-    if (heatIndex == 255)
+    if (heatIndex == 200)
     {
       heatIndex = 0;
     }
@@ -97,9 +103,9 @@ void sunrise()
 void sunset()
 {
   static const uint8_t sunriseLength = 30;
-  static const uint8_t interval = (sunriseLength * 60) / 256;
+  static const uint8_t interval = (sunriseLength * 60) / 200;
 
-  static uint8_t heatIndex = 255;
+  static uint8_t heatIndex = 200;
 
   CRGB color = ColorFromPalette(HeatColors_p, heatIndex);
 
@@ -113,7 +119,7 @@ void sunset()
     }
     if (heatIndex == 0)
     {
-      heatIndex = 255;
+      heatIndex = 20;
     }
   }
 }
@@ -125,18 +131,6 @@ void ActivationPompe()
   digitalWrite(PompePIN, HIGH);
 }
 
-// void LumiereDeJournee()
-// {
-//   FastLED.setBrightness(255);
-//   fill_solid(leds, NUM_LEDS, CRGB(255, 255, 255));
-// }
-
-// void LumiereDeNuit()
-// {
-//   FastLED.setBrightness(255);
-//   fill_solid(leds, NUM_LEDS, CRGB(25, 25, 112));
-// }
-
 void setup()
 {
 
@@ -145,18 +139,13 @@ void setup()
   Serial.begin(115200);
   Serial.println("\n");
 
-  pinMode(ledBarre, OUTPUT);
-  digitalWrite(ledBarre, HIGH);
-
-  pinMode(ledLampe, OUTPUT);
-  digitalWrite(ledLampe, HIGH);
-
   pinMode(PompePIN, OUTPUT);
   digitalWrite(PompePIN, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
 
   dht.begin();
+  dht2.begin();
 
   FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS)
       .setCorrection(TypicalLEDStrip)
@@ -217,16 +206,6 @@ void setup()
     request->send(SPIFFS, "/jquery-3.5.1.min.js", "text/javascript");
   });
 
-  server.on("/VapoParJours", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("ValeurVapoParJours", true))
-    {
-      String message;
-      message = request->getParam("ValeurVapoParJours", true)->value();
-      ValeurTempsDeVapo = Seconde * message.toInt();
-    }
-    request->send(204);
-  });
-
   server.on("/lireTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
     float val = dht.readTemperature();
     String temperature = String(val) + " °C";
@@ -239,10 +218,22 @@ void setup()
     request->send(200, "text/plain", Humidite);
   });
 
+  server.on("/lireHumiMoitie", HTTP_GET, [](AsyncWebServerRequest *request) {
+    float valHumi2 = dht2.readHumidity();
+    String Humidite2 = String(valHumi2) + " %";
+    request->send(200, "text/plain", Humidite2);
+  });
+
   server.on("/lireTempEau", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float valTempEau = 0;
+    float valTempEau = sensors.getTempCByIndex(0);
     String TempEau = String(valTempEau) + " °C";
     request->send(200, "text/plain", TempEau);
+  });
+
+  server.on("/lireTempMoitie", HTTP_GET, [](AsyncWebServerRequest *request) {
+    float valTempMoitie = dht2.readTemperature();
+    String TempMoitie = String(valTempMoitie) + " °C";
+    request->send(200, "text/plain", TempMoitie);
   });
 
   server.on("/lireTemps", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -257,7 +248,6 @@ void setup()
 
   server.on("/offBarre", HTTP_GET, [](AsyncWebServerRequest *request) {
     etatLedBarreVoulu = 0;
-    digitalWrite(ledBarre, LOW);
     etatLedBarre = 0;
     request->send(204);
   });
@@ -279,6 +269,7 @@ void setup()
 void loop()
 {
   printLocalTimeServeur();
+  sensors.requestTemperatures(); 
   delay(2 * Seconde);
 
   if (etatLedBarreVoulu == 1)
@@ -306,7 +297,7 @@ void loop()
     sunset();
   }
 
-  if (resultHeure == 2 || resultHeure == 8 || resultHeure == 14 || resultHeure == 20)
+  if (resultHeure == 8 || resultHeure == 14 || resultHeure == 20)
   {
     if (resultMinutes == 0 && resultSeconde < 5)
     {
