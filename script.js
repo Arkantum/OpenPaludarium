@@ -18,6 +18,32 @@ setInterval(function getData() {
 
     xhttp.open("GET", "lireTemp", true);
     xhttp.send();
+}, 2000);
+
+setInterval(function getData() {
+    var xhttp = new XMLHttpRequest();
+
+    xhttp.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("valeurTempEau").innerHTML = this.responseText;
+        }
+    };
+
+    xhttp.open("GET", "lireTempEau", true);
+    xhttp.send();
+}, 1000);
+
+setInterval(function getData() {
+    var xhttp = new XMLHttpRequest();
+
+    xhttp.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("valeurTempMoitie").innerHTML = this.responseText;
+        }
+    };
+
+    xhttp.open("GET", "lireTempMoitie", true);
+    xhttp.send();
 }, 1000);
 
 setInterval(function getData() {
@@ -30,6 +56,19 @@ setInterval(function getData() {
     };
 
     xhttp.open("GET", "lireHumi", true);
+    xhttp.send();
+}, 2000);
+
+setInterval(function getData() {
+    var xhttp = new XMLHttpRequest();
+
+    xhttp.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("valeurHumiMoitie").innerHTML = this.responseText;
+        }
+    };
+
+    xhttp.open("GET", "lireHumiMoitie", true);
     xhttp.send();
 }, 1000);
 
