@@ -1,3 +1,5 @@
+//////----------Declaration Librarie----------//////
+
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
@@ -7,12 +9,37 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
+//////----------Declaration Librarie----------//////
+
+//////----------Declaration PIN----------//////
+
+#define Relais_13 13 //Relai
+#define Relais_32 32 //Relai
+#define Relais_33 33 //Relai
+#define Relais_18 18 //Relai
+#define Relais_19 19 //Relai
+#define Relais_23 23 //Relai
+
+#define Thermo_16 16 //dht22 (temp and humidity)
+#define Thermo_36 36 //dht22 (temp and humidity)
+#define Thermo_35 35 //DS18B20 (temp only)
+#define Thermo_17 17 //DS18B20 (temp only)
+
+#define LED_4 4 //ws2812b led
+#define LED_5 5 //ws2812b led
+
+#define Niveau_2 2 //Capteur analogique pour le niveau d'eau
+
 #define DHTPIN 27
 #define DHTPIN2 18
 #define ONE_WIRE_BUS 32
 #define DATA_PIN 21
 #define LED_BUILTIN 2
-const int PompePIN = 5;
+#define PompePIN 5
+
+//////----------Declaration PIN----------//////
+
+//////----------Setup sensors----------//////
 
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
@@ -20,24 +47,53 @@ DHT dht(DHTPIN, DHTTYPE);
 #define DHTTYPE2 DHT11
 DHT dht2(DHTPIN2, DHTTYPE2);
 
+DHT DHT_Thermo_16(Thermo_16, DHT22);
+DHT DHT_Thermo_36(Thermo_36, DHT22);
+
+OneWire oneWire_Thermo_17(Thermo_17);
+OneWire oneWire_Thermo_35(Thermo_35);
+
+DallasTemperature sensors_Thermo_17(&oneWire_Thermo_17);
+DallasTemperature sensors_Thermo_35(&oneWire_Thermo_35);
+
+//////----------Setup sensors----------//////
+
+//////----------Setup LED----------//////
+
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS 60
 #define BRIGHTNESS 255
 
-const char *ssid = "Home";
-const char *password = "zimmermann@jel@14";
+CRGB leds[NUM_LEDS];
 
-const int Seconde = 1000;
-const int Heure = Seconde * 3600;
+//////----------Setup LED----------//////
+
+//////----------Setup Serveur----------//////
+
+const char *ssid = "Nom du reseau";
+const char *password = "Mot de passe du reseau";
+
+AsyncWebServer server(80);
+
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 3600;
+const int daylightOffset_sec = 3600;
+
+//////----------Setup Serveur----------//////
+
+//////----------Setup variable----------//////
+
+const int Seconde=1000;
+const int Heure=Seconde*3600;
+
+const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
+
+unsigned long ValeurTempsDeVapo=Seconde*TempsDeVaporisation;
 
 bool etatLedBarre = 0;
 bool etatLedBarreVoulu = 0;
 
-unsigned long TempsTemporaire = 1000000000;
-unsigned long previousLampe = 0;
-unsigned long previousBarre = 0;
-unsigned long ValeurTempsDeVapo = 20 * Seconde;
 unsigned long TempsMinutes = 0;
 String TempsActuel = "00:00";
 String HeureActuel = "0";
@@ -50,18 +106,9 @@ int resultSeconde = 0;
 float temp = 20.0;
 float temp2 = 20.0;
 
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
+//////----------Setup variable----------//////
 
-AsyncWebServer server(80);
-
-const char *ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = 3600;
-const int daylightOffset_sec = 3600;
-
-CRGB leds[NUM_LEDS];
-
-void printLocalTimeServeur()
+void ActualisationTempsServeur()
 {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo))
@@ -70,7 +117,9 @@ void printLocalTimeServeur()
     return;
   }
   HeureActuel = timeinfo.tm_hour;
+  if (timeinfo.tm_hour < 10) {HeureActuel = "0" + HeureActuel;}
   MinutesActuel = timeinfo.tm_min;
+  if (timeinfo.tm_min < 10) {MinutesActuel = "0" + MinutesActuel;}
   SecondeActuel = timeinfo.tm_sec;
   TempsMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
   TempsActuel = HeureActuel + ":" + MinutesActuel;
@@ -133,25 +182,37 @@ void ActivationPompe()
 
 void setup()
 {
-
-  //----------------------------------------------------Serial
-
   Serial.begin(115200);
   Serial.println("\n");
 
-  pinMode(PompePIN, OUTPUT);
-  digitalWrite(PompePIN, HIGH);
+  //////----------Attribution---------//////
+
+  pinMode(Relais_13, OUTPUT);
+  pinMode(Relais_18, OUTPUT);
+  pinMode(Relais_32, OUTPUT);
+  pinMode(Relais_33, OUTPUT);
+  pinMode(Relais_23, OUTPUT);
+  pinMode(Relais_19, OUTPUT);
+
+  digitalWrite(Relais_13, HIGH); //High = Relais en position basse (logique inversé)
+  digitalWrite(Relais_18, HIGH);
+  digitalWrite(Relais_32, HIGH);
+  digitalWrite(Relais_33, HIGH);
+  digitalWrite(Relais_23, HIGH);
+  digitalWrite(Relais_19, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
 
-  dht.begin();
-  dht2.begin();
+  DHT_Thermo_16.begin();
+  DHT_Thermo_36.begin();
 
   FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS)
       .setCorrection(TypicalLEDStrip)
       .setDither(BRIGHTNESS < 255);
 
-  //----------------------------------------------------SPIFFS
+  //////----------Attribution---------//////
+
+  //////----------SPIFFS---------//////
 
   if (!SPIFFS.begin())
   {
@@ -170,7 +231,9 @@ void setup()
     file = root.openNextFile();
   }
 
-  //----------------------------------------------------WIFI
+  //////----------SPIFFS---------//////
+
+  //////----------WIFI SETUP---------//////
 
   WiFi.begin(ssid, password);
   Serial.print("Tentative de connexion...");
@@ -188,7 +251,9 @@ void setup()
   Serial.print("Adresse IP: ");
   Serial.println(WiFi.localIP());
 
-  //----------------------------------------------------SERVER
+  //////----------WIFI SETUP---------//////
+
+  //////----------SERVEUR---------//////
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/index.html", "text/html");
@@ -207,14 +272,12 @@ void setup()
   });
 
   server.on("/lireTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float val = dht.readTemperature();
-    String temperature = String(val) + " °C";
+    String temperature = String(dht.readTemperature()) + " °C";
     request->send(200, "text/plain", temperature);
   });
 
   server.on("/lireHumi", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float valHumi = dht.readHumidity();
-    String Humidite = String(valHumi) + " %";
+    String Humidite = String(dht.readHumidity()) + " %";
     request->send(200, "text/plain", Humidite);
   });
 
@@ -253,11 +316,11 @@ void setup()
   });
 
   server.on("/onPompe", HTTP_GET, [](AsyncWebServerRequest *request) {
-    digitalWrite(PompePIN, LOW);
-    delay(ValeurTempsDeVapo);
-    digitalWrite(PompePIN, HIGH);
+    ActivationPompe();
     request->send(204);
   });
+
+  //////----------SERVEUR---------//////
 
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -268,9 +331,9 @@ void setup()
 
 void loop()
 {
-  printLocalTimeServeur();
-  sensors.requestTemperatures(); 
-  delay(2 * Seconde);
+  ActualisationTempsServeur();
+  sensors_Thermo_17.requestTemperatures(); 
+  delay(2*Seconde);
 
   if (etatLedBarreVoulu == 1)
   {
@@ -313,6 +376,11 @@ void loop()
   {
     FastLED.clear();
   }
+
+  if (TempsMinutes == 1260)
+  {
+    ESP.restart();
+  } 
 
   FastLED.show();
 }
