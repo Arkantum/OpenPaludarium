@@ -91,10 +91,13 @@ const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
 
 unsigned long ValeurTempsDeVapo=Seconde*TempsDeVaporisation;
 
-bool etatLedBarre = 0;
-bool etatLedBarreVoulu = 0;
+bool Rampe_Eclairage = 0;
+bool Rampe_Eclairage_Temporaire = 1;
 
 unsigned long TempsMinutes = 0;
+unsigned long TempsTemporaire = 1500;
+unsigned long TempsActivationManuel = 5;
+
 String TempsActuel = "00:00";
 String HeureActuel = "0";
 String MinutesActuel = "0";
@@ -102,9 +105,6 @@ String SecondeActuel = "0";
 int resultHeure = 0;
 int resultMinutes = 0;
 int resultSeconde = 0;
-
-float temp = 20.0;
-float temp2 = 20.0;
 
 //////----------Setup variable----------//////
 
@@ -271,56 +271,55 @@ void setup()
     request->send(SPIFFS, "/jquery-3.5.1.min.js", "text/javascript");
   });
 
-  server.on("/lireTemp", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(dht.readTemperature()) + " °C";
+  //////----------SERVEUR---------//////
+
+  //////----------SERVEUR COMMANDE---------//////
+
+  server.on("/Temp_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String temperature = String(DHT_Thermo_16.readTemperature()) + " °C";
+    request->send(200, "text/plain", temperature);
+  });  
+  server.on("/Temp_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String temperature = String(DHT_Thermo_36.readTemperature()) + " °C";
+    request->send(200, "text/plain", temperature);
+  });
+  server.on("/Temp_Thermo_17", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String temperature = String(sensors_Thermo_17.getTempCByIndex(0)) + " °C";
+    request->send(200, "text/plain", temperature);
+  });
+  server.on("/Temp_Thermo_35", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String temperature = String(sensors_Thermo_35.getTempCByIndex(0)) + " °C";
     request->send(200, "text/plain", temperature);
   });
 
-  server.on("/lireHumi", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(dht.readHumidity()) + " %";
+  server.on("/Humi_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String Humidite = String(DHT_Thermo_16.readHumidity()) + " %";
     request->send(200, "text/plain", Humidite);
   });
+  server.on("/Humi_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String Humidite = String(DHT_Thermo_36.readHumidity()) + " %";
+    request->send(200, "text/plain", Humidite);
+  });  
 
-  server.on("/lireHumiMoitie", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float valHumi2 = dht2.readHumidity();
-    String Humidite2 = String(valHumi2) + " %";
-    request->send(200, "text/plain", Humidite2);
+  server.on("/Temps", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", TempsActuel);
   });
 
-  server.on("/lireTempEau", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float valTempEau = sensors.getTempCByIndex(0);
-    String TempEau = String(valTempEau) + " °C";
-    request->send(200, "text/plain", TempEau);
+  server.on("/Rampe_Eclairage_On", HTTP_GET, [](AsyncWebServerRequest *request) {
+    Rampe_Eclairage_Temporaire = 1;
+    request->send(204);
   });
-
-  server.on("/lireTempMoitie", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float valTempMoitie = dht2.readTemperature();
-    String TempMoitie = String(valTempMoitie) + " °C";
-    request->send(200, "text/plain", TempMoitie);
-  });
-
-  server.on("/lireTemps", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String TempsActu = TempsActuel;
-    request->send(200, "text/plain", TempsActu);
-  });
-
-  server.on("/onBarre", HTTP_GET, [](AsyncWebServerRequest *request) {
-    etatLedBarreVoulu = 1;
+  server.on("/Rampe_Eclairage_Off", HTTP_GET, [](AsyncWebServerRequest *request) {
+    Rampe_Eclairage_Temporaire = 0;
     request->send(204);
   });
 
-  server.on("/offBarre", HTTP_GET, [](AsyncWebServerRequest *request) {
-    etatLedBarreVoulu = 0;
-    etatLedBarre = 0;
-    request->send(204);
-  });
-
-  server.on("/onPompe", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Pompe_Activation", HTTP_GET, [](AsyncWebServerRequest *request) {
     ActivationPompe();
     request->send(204);
   });
 
-  //////----------SERVEUR---------//////
+  //////----------SERVEUR COMMANDE---------//////
 
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -331,31 +330,28 @@ void setup()
 
 void loop()
 {
+  //////----------Routine----------//////
+
   ActualisationTempsServeur();
   sensors_Thermo_17.requestTemperatures(); 
-  delay(2*Seconde);
-
-  if (etatLedBarreVoulu == 1)
-  {
-    int PreTemps = TempsMinutes;
-    fill_solid(leds, NUM_LEDS, CRGB(255, 255, 255));
-    if (PreTemps == TempsMinutes + 30)
-    {
-      etatLedBarreVoulu = 0;
-      FastLED.clear();
-    }
-  }
+  sensors_Thermo_35.requestTemperatures(); 
 
   int resultHeure = HeureActuel.toInt();
   int resultMinutes = MinutesActuel.toInt();
   int resultSeconde = SecondeActuel.toInt();
 
-  if (resultHeure == 8 && resultMinutes < 30)
+  delay(Seconde);
+
+  //////----------Routine----------//////
+
+  //////----------Routine temporelle----------//////
+
+  if (resultHeure == 8 && resultMinutes < 30) //Lever de soleil
   {
     sunrise();
   }
 
-  if (resultHeure == 20 && resultMinutes < 30)
+  if (resultHeure == 20 && resultMinutes < 30) //Coucher de soleil
   {
     sunset();
   }
@@ -367,20 +363,51 @@ void loop()
       ActivationPompe();
     }
   }
-  if (TempsMinutes > 510 && TempsMinutes < 1200)
+
+  if (TempsMinutes > 510 && TempsMinutes < 1200) //Journée
   {
     fill_solid(leds, NUM_LEDS, CRGB(255, 255, 255));
+    Rampe_Eclairage = 1;
   }
 
-  if (TempsMinutes < 480 && TempsMinutes > 1230)
+  if (TempsMinutes < 480 && TempsMinutes > 1230) //Nuit
   {
     FastLED.clear();
+    Rampe_Eclairage = 0;
   }
 
-  if (TempsMinutes == 1260)
+  //////----------Routine temporelle----------//////
+
+  //////----------Eclairage----------//////
+
+  if (Rampe_Eclairage_Temporaire == 1 && Rampe_Eclairage == 0)
   {
-    ESP.restart();
-  } 
+    TempsMinutes = TempsTemporaire;
+    Rampe_Eclairage_Temporaire = 0;
+    Rampe_Eclairage = 1;
+  }
+  if (TempsMinutes >= TempsTemporaire + TempsActivationManuel)
+  {
+    Rampe_Eclairage = 0;
+    TempsTemporaire = 1500; //Temps minutes ne pourra jamais etre superieur a 1500
+  }
+  if (Rampe_Eclairage_Temporaire == 0)
+  {
+    Rampe_Eclairage = 0;
+    TempsTemporaire = 0;
+  }
+
+  if (Rampe_Eclairage)
+  {
+    //Relais led on
+  }
+  else
+  {
+    //Relais led off
+  }
+
+  //////----------Eclairage----------//////
 
   FastLED.show();
+
 }
