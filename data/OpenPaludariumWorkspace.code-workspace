@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"name": "OpenPaludarium",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"functional": "cpp"
+		},
+		"files.autoSave": "afterDelay"
+	}
+}
