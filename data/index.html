@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <title>Le paludarium</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8" />
+    <link rel="stylesheet" type="text/css" href="w3.css">
+    <link rel="shortcut icon" href="favicon.ico">
+    <script type="text/javascript" src="jquery-3.5.1.min.js"></script>
+    <script type="text/javascript" src="script.js"></script>
+    <script type="text/javascript" src="gauge.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+        integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+    <style>
+        html {
+            font-family: Arial;
+            display: inline-block;
+            margin: 0px auto;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 3.0rem;
+        }
+
+        p {
+            font-size: 3.0rem;
+        }
+
+        .units {
+            font-size: 1.2rem;
+        }
+
+        .dht-labels {
+            font-size: 1.5rem;
+            vertical-align: middle;
+            padding-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body class="w3-animate-opacity">
+    <div class="w3-card w3-blue w3-padding-small w3-center">
+        <h1>Serveur de contrôle du paludarium</h1>
+    </div>
+    <div class="w3-bar w3-card-4">
+        <br>
+        <button onclick="Rampe_Eclairage_On()" class="w3-button w3-green w3-xlarge w3-ripple w3-wide"
+            style="width:40%;">Eclairage temporaire ON</button>
+        <button onclick="Rampe_Eclairage_Off()" class="w3-button w3-red w3-xlarge w3-ripple w3-wide"
+            style="width:40%;">Eclairage temporaire OFF</button>
+        <br><br>
+    </div>
+
+    <table class='w3-table w3-bordered w3-card-4 w3-centered w3-xlarge w3-section'>
+        <tr>
+            <th class='w3-light-blue'><i class="fas fa-thermometer-half" style="color:#059e8a;"></i> Température du capteur 16
+            </th>
+            <th class='w3-light-blue'><i class="fas fa-thermometer-half" style="color:#059e8a;"></i> Température du capteur 36
+            </th>
+            <th class='w3-light-blue'><i class="fas fa-thermometer-half" style="color:#059e8a;"></i> Température de
+                l'eau (Capteur 17)</th>
+        </tr>
+        <tr>
+            <td class='w3-white' style='width:33%;'>
+                <p><span id="Temp_Thermo_16">0 °C</span></p>
+            </td>
+            <td class='w3-white' style='width:33%;'>
+                <p><span id="Temp_Thermo_36">0 °C</span></p>
+            </td>
+            <td class='w3-white' style='width:33%;'>
+                <p><span id="Temp_Thermo_17">0 °C</span></p>
+            </td>
+        </tr>
+    </table>
+    <table class='w3-table w3-bordered w3-card-4 w3-centered w3-xlarge w3-section'>
+        <tr>
+            <th class='w3-light-blue'><i class="fas fa-tint" style="color:#00add6;"></i> Humidité du capteur 16</th>
+            <th class='w3-light-blue'><i class="fas fa-tint" style="color:#00add6;"></i> Humidité du capteur 36</th>
+            <th class='w3-light-blue'><i class="far fa-clock" style="color:#000000;"></i> Heure actuelle</th>
+        </tr>
+        <tr>
+            <td class='w3-white' style='width:33%;'>
+                <canvas id="Humi_Thermo_16"></canvas>
+            </td>
+            <td class='w3-white' style='width:33%;'>
+                <canvas id="Humi_Thermo_36"></canvas>
+            </td>
+            <td class='w3-white' style='width:33%;'>
+                
+                <p><span id="Temps">00:00</span></p>
+            </td>
+        </tr>
+    </table>
+    <div class="w3-bar w3-card-4">
+        <br>
+        <button onclick="Pompe_Activation()" class="w3-button w3-green w3-large w3-ripple w3-wide"
+            style="width:100%;">Activation manuelle de la vaporisation</button>
+        <hr>
+        <div class="w3-padding w3-center">
+            <i><a href="http://www.fichespoissons.fr/0759" style="text-decoration: none;">Fiche d'élevage des
+                    crabes</a></i>
+        </div>
+        <hr>
+</body>
+
+<script>
+    var Humi_Thermo_16 = new RadialGauge({
+        renderTo: 'Humi_Thermo_16',
+        width: 200,
+        height: 200,
+        units: '%',
+        minValue: 0,
+        maxValue: 100,
+        majorTicks: [
+            '0',
+            '10',
+            '20',
+            '30',
+            '40',
+            '50',
+            '60',
+            '70',
+            '80',
+            '90',
+            '100'
+        ],
+        minorTicks: 5,
+        ticksAngle: 270,
+        startAngle: 45,
+        strokeTicks: true,
+        highlights: [
+            { from: 0, to: 80, color: 'rgba(255, 0, 0, 0.75)' },
+            { from: 80, to: 90, color: 'rgba(255, 255, 0, 0.75)' },
+            { from: 90, to: 100, color: 'rgba(0, 255, 0, 0.75)' }
+        ],
+        valueInt: 1,
+        valueDec: 0,
+        colorPlate: "#fff",
+        colorMajorTicks: "#686868",
+        colorMinorTicks: "#686868",
+        colorTitle: "#000",
+        colorUnits: "#000",
+        colorNumbers: "#686868",
+        valueBox: true,
+        colorValueText: "#000",
+        colorValueBoxRect: "#fff",
+        colorValueBoxRectEnd: "#fff",
+        colorValueBoxBackground: "#fff",
+        colorValueBoxShadow: false,
+        colorValueTextShadow: false,
+        colorNeedleShadowUp: true,
+        colorNeedleShadowDown: false,
+        colorNeedle: "rgba(200, 50, 50, .75)",
+        colorNeedleEnd: "rgba(200, 50, 50, .75)",
+        colorNeedleCircleOuter: "rgba(200, 200, 200, 1)",
+        colorNeedleCircleOuterEnd: "rgba(200, 200, 200, 1)",
+        borderShadowWidth: 0,
+        borders: true,
+        borderInnerWidth: 0,
+        borderMiddleWidth: 0,
+        borderOuterWidth: 5,
+        colorBorderOuter: "#fafafa",
+        colorBorderOuterEnd: "#cdcdcd",
+        needleType: "arrow",
+        needleWidth: 2,
+        needleCircleSize: 7,
+        needleCircleOuter: true,
+        needleCircleInner: false,
+        animationDuration: 1500,
+        animationRule: "dequint",
+        fontNumbers: "Verdana",
+        fontTitle: "Verdana",
+        fontUnits: "Verdana",
+        fontValue: "Led",
+        fontValueStyle: 'italic',
+        fontNumbersSize: 20,
+        fontNumbersStyle: 'italic',
+        fontNumbersWeight: 'bold',
+        fontTitleSize: 24,
+        fontUnitsSize: 22,
+        fontValueSize: 50,
+        animatedValue: true
+    });
+    Humi_Thermo_16.draw();
+    Humi_Thermo_16.value = "85.5";
+
+    var Humi_Thermo_36 = new RadialGauge({
+        renderTo: 'Humi_Thermo_36',
+        width: 200,
+        height: 200,
+        units: '%',
+        minValue: 0,
+        maxValue: 100,
+        majorTicks: [
+            '0',
+            '10',
+            '20',
+            '30',
+            '40',
+            '50',
+            '60',
+            '70',
+            '80',
+            '90',
+            '100'
+        ],
+        minorTicks: 5,
+        ticksAngle: 270,
+        startAngle: 45,
+        strokeTicks: true,
+        highlights: [
+            { from: 0, to: 80, color: 'rgba(255, 0, 0, 0.75)' },
+            { from: 80, to: 90, color: 'rgba(255, 255, 0, 0.75)' },
+            { from: 90, to: 100, color: 'rgba(0, 255, 0, 0.75)' }
+        ],
+        valueInt: 1,
+        valueDec: 0,
+        colorPlate: "#fff",
+        colorMajorTicks: "#686868",
+        colorMinorTicks: "#686868",
+        colorTitle: "#000",
+        colorUnits: "#000",
+        colorNumbers: "#686868",
+        valueBox: true,
+        colorValueText: "#000",
+        colorValueBoxRect: "#fff",
+        colorValueBoxRectEnd: "#fff",
+        colorValueBoxBackground: "#fff",
+        colorValueBoxShadow: false,
+        colorValueTextShadow: false,
+        colorNeedleShadowUp: true,
+        colorNeedleShadowDown: false,
+        colorNeedle: "rgba(200, 50, 50, .75)",
+        colorNeedleEnd: "rgba(200, 50, 50, .75)",
+        colorNeedleCircleOuter: "rgba(200, 200, 200, 1)",
+        colorNeedleCircleOuterEnd: "rgba(200, 200, 200, 1)",
+        borderShadowWidth: 0,
+        borders: true,
+        borderInnerWidth: 0,
+        borderMiddleWidth: 0,
+        borderOuterWidth: 5,
+        colorBorderOuter: "#fafafa",
+        colorBorderOuterEnd: "#cdcdcd",
+        needleType: "arrow",
+        needleWidth: 2,
+        needleCircleSize: 7,
+        needleCircleOuter: true,
+        needleCircleInner: false,
+        animationDuration: 1500,
+        animationRule: "dequint",
+        fontNumbers: "Verdana",
+        fontTitle: "Verdana",
+        fontUnits: "Verdana",
+        fontValue: "Led",
+        fontValueStyle: 'italic',
+        fontNumbersSize: 20,
+        fontNumbersStyle: 'italic',
+        fontNumbersWeight: 'bold',
+        fontTitleSize: 24,
+        fontUnitsSize: 22,
+        fontValueSize: 50,
+        animatedValue: true
+    });
+    Humi_Thermo_36.draw();
+    Humi_Thermo_36.value = "97";
+</script>
+
+</html>
