@@ -511,22 +511,25 @@ void loop()
         if (ListeCapteurs[i] > 30 || ListeCapteurs[i] < 20)
         {
           String alerte = "ALERTE !!! \n";
-          alerte += "Problème de température sur le capteur :\n\n";
-          alerte += ListeCapteurs[i] + "\n";
+          alerte += "Température anormale sur le capteur :\n\n";
+          alerte += ListeCapteursNom[i] + "\n";
+          alerte += "Valeur : \n";
+          alerte += ListeCapteurs[i] + " °C" ;
           bot.sendMessage(CHAT_ID, alerte, "");
         }
       }
       else
       {
-        if (ListeCapteurs[i] < 80)
+        if (ListeCapteurs[i] <= 85)
         {
           String alerte = "ALERTE !!! \n";
-          alerte += "Problème d'humidité sur le capteur :\n\n";
-          alerte += ListeCapteurs[i] + "\n";
+          alerte += "Humidité anormale sur le capteur :\n\n";
+          alerte += ListeCapteursNom[i] + "\n";
+          alerte += "Valeur : \n";
+          alerte += ListeCapteurs[i] + " %" ;
           bot.sendMessage(CHAT_ID, alerte, "");
         }
       }
-      Serial.println(ListeCapteurs[i]);
     }
     DerniereRequeteAlerte = millis();
   }
