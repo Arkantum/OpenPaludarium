@@ -89,7 +89,7 @@ UniversalTelegramBot bot(BOTtoken, client);
 const int Seconde = 1000;
 const int Heure = Seconde * 3600;
 
-const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
+const int TempsDeVaporisation = 20; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
 
 unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
 
@@ -426,7 +426,13 @@ void loop()
     ActualisationTempsServeur();
     sensors_Thermo_17.requestTemperatures();
     sensors_Thermo_35.requestTemperatures();
-    //float ListeCapteurs[6] = {DHT_Thermo_16.readTemperature(), DHT_Thermo_36.readTemperature(), sensors_Thermo_17.getTempCByIndex(0), sensors_Thermo_35.getTempCByIndex(0), DHT_Thermo_16.readHumidity(), DHT_Thermo_36.readHumidity()};
+    int ValeurDHT_Thermo_16 = DHT_Thermo_16.readTemperature();
+    int ValeurDHT_Thermo_36 = DHT_Thermo_36.readTemperature();
+    int ValeurSensor_Thermo_17 = sensors_Thermo_17.getTempCByIndex(0);
+    int ValeurSensor_Thermo_35 = sensors_Thermo_35.getTempCByIndex(0);
+    int ValeurHumiDHT_Thermo_16 = DHT_Thermo_16.readHumidity();
+    int ValeurHumiDHT_Thermo_36 = DHT_Thermo_36.readHumidity();
+    int ListeCapteurs[6] = {ValeurDHT_Thermo_16, ValeurDHT_Thermo_36, ValeurSensor_Thermo_17, ValeurSensor_Thermo_35, ValeurHumiDHT_Thermo_16, ValeurHumiDHT_Thermo_36};
     DerniereRequeteCapteurs = millis();
   }
 
