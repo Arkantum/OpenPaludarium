@@ -1,5 +1,5 @@
 # OpenPaludarium
-Open source controller for a paludarium or a terrarium
+Open source controller for a paludarium/terrarium/aquarium/flexarium
 
 
 **FRANCAIS :**
