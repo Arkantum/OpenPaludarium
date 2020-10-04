@@ -105,6 +105,13 @@ int resultHeure = 0;
 int resultMinutes = 0;
 int resultSeconde = 0;
 
+int ValeurDHT_Thermo_16;
+int ValeurDHT_Thermo_36;
+int ValeurSensor_Thermo_17;
+int ValeurSensor_Thermo_35;
+int ValeurHumiDHT_Thermo_16;
+int ValeurHumiDHT_Thermo_36;
+
 //////----------Setup variable----------//////
 
 void ActualisationTempsServeur()
@@ -354,12 +361,12 @@ void loop()
     ActualisationTempsServeur();
     sensors_Thermo_17.requestTemperatures();
     sensors_Thermo_35.requestTemperatures();
-    int ValeurDHT_Thermo_16 = DHT_Thermo_16.readTemperature();
-    int ValeurDHT_Thermo_36 = DHT_Thermo_36.readTemperature();
-    int ValeurSensor_Thermo_17 = sensors_Thermo_17.getTempCByIndex(0);
-    int ValeurSensor_Thermo_35 = sensors_Thermo_35.getTempCByIndex(0);
-    int ValeurHumiDHT_Thermo_16 = DHT_Thermo_16.readHumidity();
-    int ValeurHumiDHT_Thermo_36 = DHT_Thermo_36.readHumidity();
+    ValeurDHT_Thermo_16 = DHT_Thermo_16.readTemperature();
+    ValeurDHT_Thermo_36 = DHT_Thermo_36.readTemperature();
+    ValeurSensor_Thermo_17 = sensors_Thermo_17.getTempCByIndex(0);
+    ValeurSensor_Thermo_35 = sensors_Thermo_35.getTempCByIndex(0);
+    ValeurHumiDHT_Thermo_16 = DHT_Thermo_16.readHumidity();
+    ValeurHumiDHT_Thermo_36 = DHT_Thermo_36.readHumidity();
     DerniereRequeteCapteurs = millis();
   }
 
@@ -421,5 +428,5 @@ void loop()
   }
 
   //////----------Alerte Telegram----------////// 
-   
+
 }
