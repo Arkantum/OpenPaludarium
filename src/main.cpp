@@ -5,7 +5,6 @@
 #include <SPIFFS.h>
 #include <DHT.h>
 #include <time.h>
-#include <FastLED.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <UniversalTelegramBot.h>
@@ -53,17 +52,6 @@ DallasTemperature sensors_Thermo_17(&oneWire_Thermo_17);
 DallasTemperature sensors_Thermo_35(&oneWire_Thermo_35);
 
 //////----------Setup sensors----------//////
-
-//////----------Setup LED----------//////
-
-#define LED_TYPE WS2812B
-#define COLOR_ORDER GRB
-#define NUM_LEDS 60
-#define BRIGHTNESS 255
-
-CRGB leds[NUM_LEDS];
-
-//////----------Setup LED----------//////
 
 //////----------Setup Serveur----------//////
 
@@ -117,9 +105,6 @@ int resultHeure = 0;
 int resultMinutes = 0;
 int resultSeconde = 0;
 
-int ListeCapteurs[6];
-String ListeCapteursNom[] = {"Thermo_16", "Thermo_36", "Thermo_17", "Thermo_35", "Thermo_16", "Thermo_36"};
-
 //////----------Setup variable----------//////
 
 void ActualisationTempsServeur()
@@ -127,7 +112,7 @@ void ActualisationTempsServeur()
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo))
   {
-    TempsActuel = "Erreur !";
+    TempsActuel = "Erreur temps !";
     return;
   }
   HeureActuel = timeinfo.tm_hour;
@@ -147,12 +132,7 @@ void ActualisationTempsServeur()
 
 String getReadings()
 {
-
-  String message = "Température DHT 16 : " + String(DHT_Thermo_16.readTemperature()) + " ºC \n";
-  message += "Humidité DHT 16 : " + String(DHT_Thermo_16.readHumidity()) + " % \n";
-  message += "Température DHT 36 : " + String(DHT_Thermo_36.readTemperature()) + " ºC \n";
-  message += "Humidité DHT 36 : " + String(DHT_Thermo_36.readHumidity()) + " % \n";
-  message += "Température DS18B20 : " + String(sensors_Thermo_17.getTempCByIndex(0)) + " ºC \n";
+  String message = "Données actualisée à " + TempsActuel + " (Heure locale) \n";
   message += "Température DS18B20 : " + String(sensors_Thermo_35.getTempCByIndex(0)) + " ºC \n";
   return message;
 }
@@ -194,54 +174,6 @@ void handleNewMessages(int numNewMessages)
   }
 }
 
-void sunrise()
-{
-  static const uint8_t sunriseLength = 30;
-  static const uint8_t interval = (sunriseLength * 60) / 200;
-
-  static uint8_t heatIndex = 0;
-
-  CRGB color = ColorFromPalette(HeatColors_p, heatIndex);
-
-  fill_solid(leds, NUM_LEDS, color);
-
-  EVERY_N_SECONDS(interval)
-  {
-    if (heatIndex < 200)
-    {
-      heatIndex++;
-    }
-    if (heatIndex == 200)
-    {
-      heatIndex = 0;
-    }
-  }
-}
-
-void sunset()
-{
-  static const uint8_t sunriseLength = 30;
-  static const uint8_t interval = (sunriseLength * 60) / 200;
-
-  static uint8_t heatIndex = 200;
-
-  CRGB color = ColorFromPalette(HeatColors_p, heatIndex);
-
-  fill_solid(leds, NUM_LEDS, color);
-
-  EVERY_N_SECONDS(interval)
-  {
-    if (heatIndex > 0)
-    {
-      heatIndex--;
-    }
-    if (heatIndex == 0)
-    {
-      heatIndex = 20;
-    }
-  }
-}
-
 void ActivationPompe()
 {
   digitalWrite(Relai_Pompe, LOW);
@@ -274,10 +206,6 @@ void setup()
 
   DHT_Thermo_16.begin();
   DHT_Thermo_36.begin();
-
-  FastLED.addLeds<LED_TYPE, LED_4, COLOR_ORDER>(leds, NUM_LEDS)
-      .setCorrection(TypicalLEDStrip)
-      .setDither(BRIGHTNESS < 255);
 
   //////----------Attribution---------//////
 
@@ -432,23 +360,12 @@ void loop()
     int ValeurSensor_Thermo_35 = sensors_Thermo_35.getTempCByIndex(0);
     int ValeurHumiDHT_Thermo_16 = DHT_Thermo_16.readHumidity();
     int ValeurHumiDHT_Thermo_36 = DHT_Thermo_36.readHumidity();
-    int ListeCapteurs[6] = {ValeurDHT_Thermo_16, ValeurDHT_Thermo_36, ValeurSensor_Thermo_17, ValeurSensor_Thermo_35, ValeurHumiDHT_Thermo_16, ValeurHumiDHT_Thermo_36};
     DerniereRequeteCapteurs = millis();
   }
 
   //////----------Routine----------//////
 
   //////----------Routine temporelle----------//////
-
-  if (resultHeure == 8 && resultMinutes < 30) //Lever de soleil
-  {
-    sunrise();
-  }
-
-  if (resultHeure == 20 && resultMinutes < 30) //Coucher de soleil
-  {
-    sunset();
-  }
 
   if (resultHeure == 8 || resultHeure == 14 || resultHeure == 20)
   {
@@ -458,15 +375,13 @@ void loop()
     }
   }
 
-  if (TempsMinutes > 510 && TempsMinutes < 1200) //Journée
+  if (TempsMinutes >= 480 && TempsMinutes < 1200) //Journée
   {
-    fill_solid(leds, NUM_LEDS, CRGB(255, 255, 255));
     Rampe_Eclairage = 1;
   }
 
-  if (TempsMinutes < 480 && TempsMinutes > 1230) //Nuit
+  if (TempsMinutes < 480 && TempsMinutes >= 1200) //Nuit
   {
-    FastLED.clear();
     Rampe_Eclairage = 0;
   }
 
@@ -496,41 +411,12 @@ void loop()
     digitalWrite(Relai_Rampe_LED, HIGH);
   }
 
-  FastLED.show();
-
   //////----------Eclairage----------//////
 
   //////----------Alerte Telegram----------//////
 
   if (millis() > DerniereRequeteAlerte + DelaiRequeteAlerte)
   {
-    for (byte i = 0; i < 6; i = i + 1)
-    {
-      if (i < 4)
-      {
-        if (ListeCapteurs[i] > 30 || ListeCapteurs[i] < 20)
-        {
-          String alerte = "ALERTE !!! \n";
-          alerte += "Température anormale sur le capteur :\n\n";
-          alerte += ListeCapteursNom[i] + "\n";
-          alerte += "Valeur : \n";
-          alerte += ListeCapteurs[i] + " °C" ;
-          bot.sendMessage(CHAT_ID, alerte, "");
-        }
-      }
-      else
-      {
-        if (ListeCapteurs[i] <= 85)
-        {
-          String alerte = "ALERTE !!! \n";
-          alerte += "Humidité anormale sur le capteur :\n\n";
-          alerte += ListeCapteursNom[i] + "\n";
-          alerte += "Valeur : \n";
-          alerte += ListeCapteurs[i] + " %" ;
-          bot.sendMessage(CHAT_ID, alerte, "");
-        }
-      }
-    }
     DerniereRequeteAlerte = millis();
   }
 
