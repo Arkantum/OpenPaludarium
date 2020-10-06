@@ -55,10 +55,12 @@ DallasTemperature sensors_Thermo_35(&oneWire_Thermo_35);
 
 //////----------Setup Serveur----------//////
 
-const char *ssid = "Nom du reseau";
-const char *password = "Mot de passe";
 
-#define CHAT_ID "Chat ID de l'utilisateur"
+
+const char *ssid = "Nom du reseau WIFI";
+const char *password = "Mot de passe du reseau WIFI";
+
+#define CHAT_ID "ID de l'utilisateur"
 #define BOTtoken "Token du bot"
 
 AsyncWebServer server(80);
@@ -77,7 +79,7 @@ UniversalTelegramBot bot(BOTtoken, client);
 const int Seconde = 1000;
 const int Heure = Seconde * 3600;
 
-const int TempsDeVaporisation = 20; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
+const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
 
 unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
 
@@ -91,7 +93,7 @@ unsigned long TempsActivationManuel = 5;
 int DelaiRequeteBot = 1000;
 unsigned long DerniereRequeteBot;
 
-int DelaiRequeteCapteurs = 1000;
+int DelaiRequeteCapteurs = 10000;
 unsigned long DerniereRequeteCapteurs;
 
 int DelaiRequeteAlerte = 1000;
@@ -111,6 +113,7 @@ int ValeurSensor_Thermo_17;
 int ValeurSensor_Thermo_35;
 int ValeurHumiDHT_Thermo_16;
 int ValeurHumiDHT_Thermo_36;
+int ValeurBoucle;
 
 //////----------Setup variable----------//////
 
@@ -140,7 +143,11 @@ void ActualisationTempsServeur()
 String getReadings()
 {
   String message = "Données actualisée à " + TempsActuel + " (Heure locale) \n";
-  message += "Température DS18B20 : " + String(sensors_Thermo_35.getTempCByIndex(0)) + " ºC \n";
+  while(sensors_Thermo_17.getTempCByIndex(0) == -127.00)
+  {
+    ValeurBoucle = sensors_Thermo_17.getTempCByIndex(0);
+  }
+  message += "Température DS18B20 : " + String(sensors_Thermo_17.getTempCByIndex(0)) + " ºC \n";
   return message;
 }
 
@@ -284,28 +291,28 @@ void setup()
   //////----------SERVEUR COMMANDE---------//////
 
   server.on("/Temp_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(DHT_Thermo_16.readTemperature()) + " °C";
+    String temperature = String(DHT_Thermo_16.readTemperature());
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(DHT_Thermo_36.readTemperature()) + " °C";
+    String temperature = String(DHT_Thermo_36.readTemperature());
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_17", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(sensors_Thermo_17.getTempCByIndex(0)) + " °C";
+    String temperature = String(sensors_Thermo_17.getTempCByIndex(0));
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_35", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(sensors_Thermo_35.getTempCByIndex(0)) + " °C";
+    String temperature = String(sensors_Thermo_35.getTempCByIndex(0));
     request->send(200, "text/plain", temperature);
   });
 
   server.on("/Humi_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(DHT_Thermo_16.readHumidity()) + " %";
+    String Humidite = String(DHT_Thermo_16.readHumidity());
     request->send(200, "text/plain", Humidite);
   });
   server.on("/Humi_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(DHT_Thermo_36.readHumidity()) + " %";
+    String Humidite = String(DHT_Thermo_36.readHumidity());
     request->send(200, "text/plain", Humidite);
   });
 
@@ -374,9 +381,9 @@ void loop()
 
   //////----------Routine temporelle----------//////
 
-  if (resultHeure == 8 || resultHeure == 14 || resultHeure == 20)
+  if (resultHeure == 8 || resultHeure == 12 || resultHeure == 16 || resultHeure == 20)
   {
-    if (resultMinutes == 0 && resultSeconde < 5)
+    if (resultMinutes == 0 && resultSeconde < 11)
     {
       ActivationPompe();
     }
