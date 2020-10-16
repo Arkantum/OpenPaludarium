@@ -23,7 +23,7 @@
 #define Relais_23 23 //Relai
 
 int Relai_Pompe = Relais_13;
-int Relai_Rampe_LED = Relais_32;
+int Relai_Rampe_LED = Relais_18;
 
 #define Thermo_16 16 //dht22 (temp and humidity)
 #define Thermo_36 36 //dht22 (temp and humidity)
@@ -36,7 +36,6 @@ int Relai_Rampe_LED = Relais_32;
 #define Niveau_2 2 //Capteur analogique pour le niveau d'eau
 
 #define LED_BUILTIN 2
-
 
 //////----------Declaration PIN----------//////
 
@@ -77,18 +76,22 @@ UniversalTelegramBot bot(BOTtoken, client);
 //////----------Setup variable----------//////
 
 const int Seconde = 1000;
+const int Minute = 60 * Seconde;
 const int Heure = Seconde * 3600;
 
 const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
+const int FrequenceDeVapo = 4;
 
 unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
+unsigned long ValeurFrequenceDeVapo = FrequenceDeVapo;
 
 bool Rampe_Eclairage = 0;
 bool Rampe_Eclairage_Temporaire = 1;
+bool Info_Relai_Pompe = 0;
 
 unsigned long TempsMinutes = 0;
 unsigned long TempsTemporaire = 1500;
-unsigned long TempsActivationManuel = 5;
+unsigned long TempsActivationManuel = 5 * Minute;
 
 int DelaiRequeteBot = 1000;
 unsigned long DerniereRequeteBot;
@@ -143,7 +146,7 @@ void ActualisationTempsServeur()
 String getReadings()
 {
   String message = "Données actualisée à " + TempsActuel + " (Heure locale) \n";
-  while(sensors_Thermo_17.getTempCByIndex(0) == -127.00)
+  while (sensors_Thermo_17.getTempCByIndex(0) == -127.00)
   {
     ValeurBoucle = sensors_Thermo_17.getTempCByIndex(0);
   }
@@ -330,7 +333,29 @@ void setup()
   });
 
   server.on("/Pompe_Activation", HTTP_GET, [](AsyncWebServerRequest *request) {
-    ActivationPompe();
+    digitalWrite(Relai_Pompe, LOW);
+    Info_Relai_Pompe = 1;
+    DerniereRequeteAlerte = millis();
+    request->send(204);
+  });
+
+  server.on("/TempsBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("TempsBrumisation", true))
+    {
+      String message;
+      message = request->getParam("TempsBrumisation", true)->value();
+      ValeurTempsDeVapo = message.toInt() * Seconde;
+    }
+    request->send(204);
+  });
+
+    server.on("/FrequenceBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("FrequenceBrumisation", true))
+    {
+      String message;
+      message = request->getParam("FrequenceBrumisation", true)->value();
+      ValeurFrequenceDeVapo = message.toInt();
+    }
     request->send(204);
   });
 
@@ -381,6 +406,7 @@ void loop()
 
   //////----------Routine temporelle----------//////
 
+
   if (resultHeure == 8 || resultHeure == 12 || resultHeure == 16 || resultHeure == 20)
   {
     if (resultMinutes == 0 && resultSeconde < 11)
@@ -403,28 +429,35 @@ void loop()
 
   //////----------Eclairage----------//////
 
-  if (Rampe_Eclairage_Temporaire == 1 && Rampe_Eclairage == 0)
-  {
-    TempsMinutes = TempsTemporaire;
-    Rampe_Eclairage_Temporaire = 0;
-    Rampe_Eclairage = 1;
-  }
+  // if (Rampe_Eclairage_Temporaire == 1 && Rampe_Eclairage == 0)
+  // {
+  //   TempsMinutes = TempsTemporaire;
+  //   Rampe_Eclairage_Temporaire = 0;
+  //   Rampe_Eclairage = 1;
+  // }
 
-  if (Rampe_Eclairage_Temporaire == 0 || TempsMinutes >= TempsTemporaire + TempsActivationManuel)
-  {
-    Rampe_Eclairage = 0;
-    TempsTemporaire = 1500; //Temps minutes ne pourra jamais etre superieur a 1500
-  }
+  // if (Rampe_Eclairage_Temporaire == 0 || TempsMinutes >= TempsTemporaire + TempsActivationManuel)
+  // {
+  //   Rampe_Eclairage = 0;
+  //   TempsTemporaire = 1500; //Temps minutes ne pourra jamais etre superieur a 1500
+  // }
 
   if (Rampe_Eclairage)
   {
     digitalWrite(Relai_Rampe_LED, LOW);
   }
-  else
+  else 
   {
     digitalWrite(Relai_Rampe_LED, HIGH);
   }
 
+  if (Info_Relai_Pompe)
+  {
+    delay(ValeurTempsDeVapo);
+    digitalWrite(Relai_Pompe, HIGH);
+    Info_Relai_Pompe = 0;
+  }
+  
   //////----------Eclairage----------//////
 
   //////----------Alerte Telegram----------//////
@@ -434,6 +467,5 @@ void loop()
     DerniereRequeteAlerte = millis();
   }
 
-  //////----------Alerte Telegram----------////// 
-
+  //////----------Alerte Telegram----------//////
 }

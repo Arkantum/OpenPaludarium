@@ -1,4 +1,20 @@
+$(document).ready(function(){
+    $("#TempsBrumiActivate").click(function(){
+        var valeur = $("#TempsBrumisation").val();
+        $.post("TempsBrumisation",{
+            TempsBrumisation: valeur
+        });
+    });
+});
 
+$(document).ready(function(){
+    $("#FrequenceBrumiActivate").click(function(){
+        var valeur = $("#FrequenceBrumisation").val();
+        $.post("FrequenceBrumisation",{
+            FrequenceBrumisation: valeur
+        });
+    });
+});
 
 setInterval(function getData() {
     var xhttp = new XMLHttpRequest();
@@ -15,7 +31,7 @@ setInterval(function getData() {
 
 setInterval(function getData() {
     var xhttp = new XMLHttpRequest();
-    
+
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
             document.getElementById("Temp_Thermo_36").innerHTML = this.responseText;
@@ -28,7 +44,7 @@ setInterval(function getData() {
 
 setInterval(function getData() {
     var xhttp = new XMLHttpRequest();
-    
+
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
             document.getElementById("Temp_Thermo_17").innerHTML = this.responseText;
@@ -41,7 +57,7 @@ setInterval(function getData() {
 
 setInterval(function getData() {
     var xhttp = new XMLHttpRequest();
-    
+
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
             document.getElementById("Temp_Thermo_35").innerHTML = this.responseText;
@@ -110,3 +126,4 @@ function Pompe_Activation() {
     xhttp.open("GET", "Pompe_Activation", true);
     xhttp.send();
 }
+
