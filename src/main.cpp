@@ -16,24 +16,29 @@
 //////----------Declaration PIN----------//////
 
 #define Relais_13 13 //Relai Pompe
-#define Relais_32 32 //Relai Rampe LED
-#define Relais_33 33 //Relai
+#define Relais_16 16 //Relai Rampe LED
+#define Relais_17 17 //Relai
 #define Relais_18 18 //Relai
 #define Relais_19 19 //Relai
 #define Relais_23 23 //Relai
+#define Relais_25 25 //Relai
+#define Relais_27 27 //Relai
 
 int Relai_Pompe = Relais_13;
-int Relai_Rampe_LED = Relais_18;
+int Relai_Rampe_LED = Relais_16;
+int Relai_Brume = Relais_18;
 
-#define Thermo_16 16 //dht22 (temp and humidity)
-#define Thermo_36 36 //dht22 (temp and humidity)
-#define Thermo_35 35 //DS18B20 (temp only)
-#define Thermo_17 17 //DS18B20 (temp only)
+#define Thermo_4 4   //dht22 (temp and humidity)
+#define Thermo_5 5   //dht22 (temp and humidity)
+#define Thermo_32 32 //DS18B20 (temp only)
+#define Thermo_33 33 //DS18B20 (temp only)
 
-#define LED_4 4 //ws2812b led
-#define LED_5 5 //ws2812b led
+#define BandeauLED 12 //ws2812b led
+#define LED_R 14
+#define LED_G 15
 
-#define Niveau_2 2 //Capteur analogique pour le niveau d'eau
+#define Niveau_36 36 //Capteur analogique pour le niveau d'eau
+#define Niveau_39 39
 
 #define LED_BUILTIN 2
 
@@ -41,20 +46,18 @@ int Relai_Rampe_LED = Relais_18;
 
 //////----------Setup sensors----------//////
 
-DHT DHT_Thermo_16(Thermo_16, DHT22);
-DHT DHT_Thermo_36(Thermo_36, DHT22);
+DHT DHT_Thermo_4(Thermo_4, DHT22);
+DHT DHT_Thermo_5(Thermo_5, DHT22);
 
-OneWire oneWire_Thermo_17(Thermo_17);
-OneWire oneWire_Thermo_35(Thermo_35);
+OneWire oneWire_Thermo_32(Thermo_32);
+DallasTemperature sensors_Thermo_32(&oneWire_Thermo_32);
 
-DallasTemperature sensors_Thermo_17(&oneWire_Thermo_17);
-DallasTemperature sensors_Thermo_35(&oneWire_Thermo_35);
+OneWire oneWire_Thermo_33(Thermo_33);
+DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
 
 //////----------Setup sensors----------//////
 
 //////----------Setup Serveur----------//////
-
-
 
 const char *ssid = "Nom du reseau WIFI";
 const char *password = "Mot de passe du reseau WIFI";
@@ -80,7 +83,7 @@ const int Minute = 60 * Seconde;
 const int Heure = Seconde * 3600;
 
 const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
-const int FrequenceDeVapo = 4;
+const int FrequenceDeVapo = 4;      // Frequence de vaporisation en une journée
 
 unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
 unsigned long ValeurFrequenceDeVapo = FrequenceDeVapo;
@@ -91,7 +94,6 @@ bool Info_Relai_Pompe = 0;
 
 unsigned long TempsMinutes = 0;
 unsigned long TempsTemporaire = 1500;
-unsigned long TempsActivationManuel = 5 * Minute;
 
 int DelaiRequeteBot = 1000;
 unsigned long DerniereRequeteBot;
@@ -99,8 +101,8 @@ unsigned long DerniereRequeteBot;
 int DelaiRequeteCapteurs = 10000;
 unsigned long DerniereRequeteCapteurs;
 
-int DelaiRequeteAlerte = 1000;
-unsigned long DerniereRequeteAlerte;
+int DelaiRequetePompe = 1000;
+unsigned long DerniereRequetePompe;
 
 String TempsActuel = "00:00";
 String HeureActuel = "0";
@@ -109,14 +111,14 @@ String SecondeActuel = "0";
 int resultHeure = 0;
 int resultMinutes = 0;
 int resultSeconde = 0;
-
-int ValeurDHT_Thermo_16;
-int ValeurDHT_Thermo_36;
-int ValeurSensor_Thermo_17;
-int ValeurSensor_Thermo_35;
-int ValeurHumiDHT_Thermo_16;
-int ValeurHumiDHT_Thermo_36;
 int ValeurBoucle;
+
+int ValeurDHT_Thermo_4;
+int ValeurDHT_Thermo_5;
+int ValeurSensor_Thermo_32;
+int ValeurSensor_Thermo_33;
+int ValeurDHT_Humi_4;
+int ValeurDHT_Humi_5;
 
 //////----------Setup variable----------//////
 
@@ -146,11 +148,11 @@ void ActualisationTempsServeur()
 String getReadings()
 {
   String message = "Données actualisée à " + TempsActuel + " (Heure locale) \n";
-  while (sensors_Thermo_17.getTempCByIndex(0) == -127.00)
+  while (sensors_Thermo_32 .getTempCByIndex(0) == -127.00)
   {
-    ValeurBoucle = sensors_Thermo_17.getTempCByIndex(0);
+    ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
   }
-  message += "Température DS18B20 : " + String(sensors_Thermo_17.getTempCByIndex(0)) + " ºC \n";
+  message += "Température DS18B20 : " + String(sensors_Thermo_32.getTempCByIndex(0)) + " ºC \n";
   return message;
 }
 
@@ -183,10 +185,15 @@ void handleNewMessages(int numNewMessages)
       bot.sendMessage(chat_id, welcome, "");
     }
 
-    if (text == "/readings")
+    if (text == "/info")
     {
       String readings = getReadings();
       bot.sendMessage(chat_id, readings, "");
+    }
+    if (text == "/options")
+    {
+      String keyboardJson = "[[\"/info\", \"/start\"],[\"/restart\"]]";
+      bot.sendMessageWithReplyKeyboard(chat_id, "Que voulez vous ?", "", keyboardJson, true);
     }
   }
 }
@@ -206,23 +213,27 @@ void setup()
   //////----------Attribution---------//////
 
   pinMode(Relais_13, OUTPUT);
+  pinMode(Relais_16, OUTPUT);
+  pinMode(Relais_17, OUTPUT);
   pinMode(Relais_18, OUTPUT);
-  pinMode(Relais_32, OUTPUT);
-  pinMode(Relais_33, OUTPUT);
-  pinMode(Relais_23, OUTPUT);
   pinMode(Relais_19, OUTPUT);
+  pinMode(Relais_23, OUTPUT);
+  pinMode(Relais_25, OUTPUT);
+  pinMode(Relais_27, OUTPUT);
 
   digitalWrite(Relais_13, HIGH); //High = Relais en position basse (logique inversé)
+  digitalWrite(Relais_16, HIGH);
+  digitalWrite(Relais_17, HIGH);
   digitalWrite(Relais_18, HIGH);
-  digitalWrite(Relais_32, HIGH);
-  digitalWrite(Relais_33, HIGH);
-  digitalWrite(Relais_23, HIGH);
   digitalWrite(Relais_19, HIGH);
+  digitalWrite(Relais_23, HIGH);
+  digitalWrite(Relais_25, HIGH);
+  digitalWrite(Relais_27, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
 
-  DHT_Thermo_16.begin();
-  DHT_Thermo_36.begin();
+  DHT_Thermo_4.begin();
+  //DHT_Thermo_5.begin();
 
   //////----------Attribution---------//////
 
@@ -239,7 +250,7 @@ void setup()
 
   while (file)
   {
-    Serial.print("File: ");
+    Serial.print("Fichier : ");
     Serial.println(file.name());
     file.close();
     file = root.openNextFile();
@@ -294,28 +305,28 @@ void setup()
   //////----------SERVEUR COMMANDE---------//////
 
   server.on("/Temp_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(DHT_Thermo_16.readTemperature());
+    String temperature = String(DHT_Thermo_4.readTemperature());
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(DHT_Thermo_36.readTemperature());
+    String temperature = String(DHT_Thermo_5.readTemperature());
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_17", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(sensors_Thermo_17.getTempCByIndex(0));
+    String temperature = String(sensors_Thermo_32.getTempCByIndex(0));
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_35", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(sensors_Thermo_35.getTempCByIndex(0));
+    String temperature = String(sensors_Thermo_33.getTempCByIndex(0));
     request->send(200, "text/plain", temperature);
   });
 
   server.on("/Humi_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(DHT_Thermo_16.readHumidity());
+    String Humidite = String(DHT_Thermo_4.readHumidity());
     request->send(200, "text/plain", Humidite);
   });
   server.on("/Humi_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(DHT_Thermo_36.readHumidity());
+    String Humidite = String(DHT_Thermo_5.readHumidity());
     request->send(200, "text/plain", Humidite);
   });
 
@@ -335,7 +346,7 @@ void setup()
   server.on("/Pompe_Activation", HTTP_GET, [](AsyncWebServerRequest *request) {
     digitalWrite(Relai_Pompe, LOW);
     Info_Relai_Pompe = 1;
-    DerniereRequeteAlerte = millis();
+    DerniereRequetePompe = millis();
     request->send(204);
   });
 
@@ -349,7 +360,7 @@ void setup()
     request->send(204);
   });
 
-    server.on("/FrequenceBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+  server.on("/FrequenceBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
     if (request->hasParam("FrequenceBrumisation", true))
     {
       String message;
@@ -391,21 +402,20 @@ void loop()
   if (millis() > DerniereRequeteCapteurs + DelaiRequeteCapteurs)
   {
     ActualisationTempsServeur();
-    sensors_Thermo_17.requestTemperatures();
-    sensors_Thermo_35.requestTemperatures();
-    ValeurDHT_Thermo_16 = DHT_Thermo_16.readTemperature();
-    ValeurDHT_Thermo_36 = DHT_Thermo_36.readTemperature();
-    ValeurSensor_Thermo_17 = sensors_Thermo_17.getTempCByIndex(0);
-    ValeurSensor_Thermo_35 = sensors_Thermo_35.getTempCByIndex(0);
-    ValeurHumiDHT_Thermo_16 = DHT_Thermo_16.readHumidity();
-    ValeurHumiDHT_Thermo_36 = DHT_Thermo_36.readHumidity();
+    sensors_Thermo_32.requestTemperatures();
+    sensors_Thermo_33.requestTemperatures();
+    ValeurSensor_Thermo_32 = sensors_Thermo_32.getTempCByIndex(0);
+    ValeurSensor_Thermo_33 = sensors_Thermo_33.getTempCByIndex(0);
+    ValeurDHT_Thermo_4 = DHT_Thermo_4.readTemperature();
+    ValeurDHT_Thermo_5 = DHT_Thermo_5.readTemperature();
+    ValeurDHT_Humi_4 = DHT_Thermo_4.readHumidity();
+    ValeurDHT_Humi_5 = DHT_Thermo_5.readHumidity();
     DerniereRequeteCapteurs = millis();
   }
 
   //////----------Routine----------//////
 
   //////----------Routine temporelle----------//////
-
 
   if (resultHeure == 8 || resultHeure == 12 || resultHeure == 16 || resultHeure == 20)
   {
@@ -446,7 +456,7 @@ void loop()
   {
     digitalWrite(Relai_Rampe_LED, LOW);
   }
-  else 
+  else
   {
     digitalWrite(Relai_Rampe_LED, HIGH);
   }
@@ -457,14 +467,14 @@ void loop()
     digitalWrite(Relai_Pompe, HIGH);
     Info_Relai_Pompe = 0;
   }
-  
+
   //////----------Eclairage----------//////
 
   //////----------Alerte Telegram----------//////
 
-  if (millis() > DerniereRequeteAlerte + DelaiRequeteAlerte)
+  if (millis() > DerniereRequetePompe + DelaiRequetePompe)
   {
-    DerniereRequeteAlerte = millis();
+    DerniereRequetePompe = millis();
   }
 
   //////----------Alerte Telegram----------//////
