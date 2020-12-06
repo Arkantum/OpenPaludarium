@@ -21,11 +21,11 @@ setInterval(function getData() {
 
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("Temp_Thermo_16").innerHTML = this.responseText;
+            document.getElementById("Temp_Thermo_4").innerHTML = this.responseText;
         }
     };
 
-    xhttp.open("GET", "Temp_Thermo_16", true);
+    xhttp.open("GET", "Temp_Thermo_4", true);
     xhttp.send();
 }, 2000);
 
@@ -34,11 +34,11 @@ setInterval(function getData() {
 
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("Temp_Thermo_36").innerHTML = this.responseText;
+            document.getElementById("Temp_Thermo_5").innerHTML = this.responseText;
         }
     };
 
-    xhttp.open("GET", "Temp_Thermo_36", true);
+    xhttp.open("GET", "Temp_Thermo_5", true);
     xhttp.send();
 }, 2000);
 
@@ -47,11 +47,11 @@ setInterval(function getData() {
 
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("Temp_Thermo_17").innerHTML = this.responseText;
+            document.getElementById("Temp_Thermo_32").innerHTML = this.responseText;
         }
     };
 
-    xhttp.open("GET", "Temp_Thermo_17", true);
+    xhttp.open("GET", "Temp_Thermo_32", true);
     xhttp.send();
 }, 2000);
 
@@ -60,11 +60,11 @@ setInterval(function getData() {
 
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("Temp_Thermo_35").innerHTML = this.responseText;
+            document.getElementById("Temp_Thermo_33").innerHTML = this.responseText;
         }
     };
 
-    xhttp.open("GET", "Temp_Thermo_35", true);
+    xhttp.open("GET", "Temp_Thermo_33", true);
     xhttp.send();
 }, 2000);
 
@@ -73,11 +73,11 @@ setInterval(function getData() {
 
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("Humi_Thermo_16").innerHTML = this.responseText;
+            document.getElementById("Humi_Thermo_4").innerHTML = this.responseText;
         }
     };
 
-    xhttp.open("GET", "Humi_Thermo_16", true);
+    xhttp.open("GET", "Humi_Thermo_4", true);
     xhttp.send();
 }, 2000);
 
@@ -86,11 +86,11 @@ setInterval(function getData() {
 
     xhttp.onreadystatechange = function () {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("Humi_Thermo_36").innerHTML = this.responseText;
+            document.getElementById("Humi_Thermo_5").innerHTML = this.responseText;
         }
     };
 
-    xhttp.open("GET", "Humi_Thermo_36", true);
+    xhttp.open("GET", "Humi_Thermo_5", true);
     xhttp.send();
 }, 2000);
 

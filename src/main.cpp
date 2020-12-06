@@ -1,15 +1,22 @@
 //////----------Declaration Librarie----------//////
 
 #include <Arduino.h>
+#include <WiFi.h>
+#include <DNSServer.h>
+#include <WebServer.h>
+#include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
 #include <DHT.h>
-#include <time.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 //////----------Declaration Librarie----------//////
 
@@ -26,7 +33,7 @@
 
 int Relai_Pompe = Relais_13;
 int Relai_Rampe_LED = Relais_16;
-int Relai_Brume = Relais_18;
+int Relai_Brume = Relais_27;
 
 #define Thermo_4 4   //dht22 (temp and humidity)
 #define Thermo_5 5   //dht22 (temp and humidity)
@@ -59,13 +66,18 @@ DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
 
 //////----------Setup Serveur----------//////
 
-const char *ssid = "Nom du reseau WIFI";
-const char *password = "Mot de passe du reseau WIFI";
+
 
 #define CHAT_ID "ID de l'utilisateur"
 #define BOTtoken "Token du bot"
 
+const char *ssid = "OpenPaludarium";
+const char *password = "PaludariumOpen";
+
+
 AsyncWebServer server(80);
+
+WiFiManager wifiManager;
 
 const char *ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 3600;
@@ -73,6 +85,8 @@ const int daylightOffset_sec = 3600;
 
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
+
+Adafruit_SSD1306 display(128, 64, &Wire);
 
 //////----------Setup Serveur----------//////
 
@@ -82,11 +96,13 @@ const int Seconde = 1000;
 const int Minute = 60 * Seconde;
 const int Heure = Seconde * 3600;
 
-const int TempsDeVaporisation = 30; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
+const int TempsDeVaporisation = 45;
+const int TempsDeBrumisation = 60*2; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
 const int FrequenceDeVapo = 4;      // Frequence de vaporisation en une journée
 
 unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
 unsigned long ValeurFrequenceDeVapo = FrequenceDeVapo;
+unsigned long ValeurTempsDeBrumi = Seconde * TempsDeBrumisation;
 
 bool Rampe_Eclairage = 0;
 bool Rampe_Eclairage_Temporaire = 1;
@@ -98,7 +114,7 @@ unsigned long TempsTemporaire = 1500;
 int DelaiRequeteBot = 1000;
 unsigned long DerniereRequeteBot;
 
-int DelaiRequeteCapteurs = 10000;
+int DelaiRequeteCapteurs = 5000;
 unsigned long DerniereRequeteCapteurs;
 
 int DelaiRequetePompe = 1000;
@@ -145,17 +161,6 @@ void ActualisationTempsServeur()
   TempsActuel = HeureActuel + ":" + MinutesActuel;
 }
 
-String getReadings()
-{
-  String message = "Données actualisée à " + TempsActuel + " (Heure locale) \n";
-  while (sensors_Thermo_32 .getTempCByIndex(0) == -127.00)
-  {
-    ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
-  }
-  message += "Température DS18B20 : " + String(sensors_Thermo_32.getTempCByIndex(0)) + " ºC \n";
-  return message;
-}
-
 void handleNewMessages(int numNewMessages)
 {
   Serial.println("handleNewMessages");
@@ -167,7 +172,7 @@ void handleNewMessages(int numNewMessages)
     String chat_id = String(bot.messages[i].chat_id);
     if (chat_id != CHAT_ID)
     {
-      bot.sendMessage(chat_id, "Unauthorized user", "");
+      bot.sendMessage(chat_id, "Utilisateur non autorisée", "");
       continue;
     }
 
@@ -179,21 +184,53 @@ void handleNewMessages(int numNewMessages)
 
     if (text == "/start")
     {
-      String welcome = "Bienvenue, " + from_name + ".\n";
-      welcome += "Afin de pouvoir lire les valeurs, entrez :.\n\n";
-      welcome += "/readings \n";
-      bot.sendMessage(chat_id, welcome, "");
+      String keyboardJson = "[[\"/Hygrometrie\", \"/Temperature\"],[\"/Vaporisation\"],[\"/Brume\"],[\"/Lumiere\"]]";
+      bot.sendMessageWithReplyKeyboard(chat_id, "Que voulez vous ?", "", keyboardJson, true);
     }
 
-    if (text == "/info")
+    if (text == "/Temperature")
     {
-      String readings = getReadings();
-      bot.sendMessage(chat_id, readings, "");
+      while (sensors_Thermo_32.getTempCByIndex(0) == -127.00)
+      {
+        ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
+        delay(100);
+      }
+
+      String Temperature = "Température : \n\n";
+      Temperature += "DS18B20  :  " + String(ValeurBoucle) + " ºC \n";
+      Temperature += "DHT22    :  " + String(DHT_Thermo_5.readTemperature()) + " ºC \n";
+      bot.sendMessage(chat_id, Temperature, "");
     }
-    if (text == "/options")
+
+    if (text == "/Hygrometrie")
     {
-      String keyboardJson = "[[\"/info\", \"/start\"],[\"/restart\"]]";
-      bot.sendMessageWithReplyKeyboard(chat_id, "Que voulez vous ?", "", keyboardJson, true);
+      while (sensors_Thermo_32.getTempCByIndex(0) == -127.00)
+      {
+        ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
+        delay(100);
+      }
+
+      String Hygrometrie = "Hygrométrie : \n\n";
+      Hygrometrie += "DHT22    :  " + String(DHT_Thermo_5.readHumidity()) + " % \n";
+      bot.sendMessage(chat_id, Hygrometrie, "");
+    }
+
+    if (text == "/Vaporisation")
+    {
+      String pompe = "Vaporisation activée pendant : " + String(ValeurTempsDeVapo / 1000) + " secondes";
+      bot.sendMessage(chat_id, pompe, "");
+      digitalWrite(Relai_Pompe, LOW);
+      delay(ValeurTempsDeVapo);
+      digitalWrite(Relai_Pompe, HIGH);
+    }
+
+        if (text == "/Brume")
+    {
+      String pompe = "Brumisation activée pendant : " + String(ValeurTempsDeBrumi / 60000) + " minutes";
+      bot.sendMessage(chat_id, pompe, "");
+      digitalWrite(Relai_Brume, LOW);
+      delay(ValeurTempsDeBrumi);
+      digitalWrite(Relai_Brume, HIGH);
     }
   }
 }
@@ -233,7 +270,7 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
 
   DHT_Thermo_4.begin();
-  //DHT_Thermo_5.begin();
+  DHT_Thermo_5.begin();
 
   //////----------Attribution---------//////
 
@@ -260,21 +297,40 @@ void setup()
 
   //////----------WIFI SETUP---------//////
 
-  WiFi.begin(ssid, password);
+  Serial.begin(115200);
+  Serial.println("\n");
+  wifiManager.autoConnect(ssid, password);
+  //WiFi.begin(ssid, password);
   Serial.print("Tentative de connexion...");
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print(".");
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(100);
-    digitalWrite(LED_BUILTIN, LOW);
-  }
+  // while (WiFi.status() != WL_CONNECTED)
+  // {
+  //   Serial.print(".");
+  //   digitalWrite(LED_BUILTIN, HIGH);
+  //   delay(100);
+  //   digitalWrite(LED_BUILTIN, LOW);
+  // }
 
   Serial.println("\n");
   Serial.println("Connexion etablie!");
   Serial.print("Adresse IP: ");
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+  {
+    Serial.println(F("SSD1306 allocation failed"));
+  }
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(40, 0);
+  display.println("IPv6 info");
+  display.setCursor(30, 20);
+  display.println(WiFi.localIP());
   Serial.println(WiFi.localIP());
+  display.setCursor(15, 40);
+  display.println(WiFi.macAddress());
+  display.display();
 
   //////----------WIFI SETUP---------//////
 
@@ -296,36 +352,32 @@ void setup()
     request->send(SPIFFS, "/jquery-3.5.1.min.js", "text/javascript");
   });
 
-  server.on("/gauge.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/gauge.min.js", "text/javascript");
-  });
-
   //////----------SERVEUR---------//////
 
   //////----------SERVEUR COMMANDE---------//////
 
-  server.on("/Temp_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Temp_Thermo_4", HTTP_GET, [](AsyncWebServerRequest *request) {
     String temperature = String(DHT_Thermo_4.readTemperature());
     request->send(200, "text/plain", temperature);
   });
-  server.on("/Temp_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Temp_Thermo_5", HTTP_GET, [](AsyncWebServerRequest *request) {
     String temperature = String(DHT_Thermo_5.readTemperature());
     request->send(200, "text/plain", temperature);
   });
-  server.on("/Temp_Thermo_17", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Temp_Thermo_32", HTTP_GET, [](AsyncWebServerRequest *request) {
     String temperature = String(sensors_Thermo_32.getTempCByIndex(0));
     request->send(200, "text/plain", temperature);
   });
-  server.on("/Temp_Thermo_35", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Temp_Thermo_33", HTTP_GET, [](AsyncWebServerRequest *request) {
     String temperature = String(sensors_Thermo_33.getTempCByIndex(0));
     request->send(200, "text/plain", temperature);
   });
 
-  server.on("/Humi_Thermo_16", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Humi_Thermo_4", HTTP_GET, [](AsyncWebServerRequest *request) {
     String Humidite = String(DHT_Thermo_4.readHumidity());
     request->send(200, "text/plain", Humidite);
   });
-  server.on("/Humi_Thermo_36", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/Humi_Thermo_5", HTTP_GET, [](AsyncWebServerRequest *request) {
     String Humidite = String(DHT_Thermo_5.readHumidity());
     request->send(200, "text/plain", Humidite);
   });
@@ -404,12 +456,12 @@ void loop()
     ActualisationTempsServeur();
     sensors_Thermo_32.requestTemperatures();
     sensors_Thermo_33.requestTemperatures();
-    ValeurSensor_Thermo_32 = sensors_Thermo_32.getTempCByIndex(0);
-    ValeurSensor_Thermo_33 = sensors_Thermo_33.getTempCByIndex(0);
-    ValeurDHT_Thermo_4 = DHT_Thermo_4.readTemperature();
-    ValeurDHT_Thermo_5 = DHT_Thermo_5.readTemperature();
-    ValeurDHT_Humi_4 = DHT_Thermo_4.readHumidity();
-    ValeurDHT_Humi_5 = DHT_Thermo_5.readHumidity();
+    // ValeurSensor_Thermo_32 = sensors_Thermo_32.getTempCByIndex(0);
+    // ValeurSensor_Thermo_33 = sensors_Thermo_33.getTempCByIndex(0);
+    // ValeurDHT_Thermo_4 = DHT_Thermo_4.readTemperature();
+    // ValeurDHT_Thermo_5 = DHT_Thermo_5.readTemperature();
+    // ValeurDHT_Humi_4 = DHT_Thermo_4.readHumidity();
+    // ValeurDHT_Humi_5 = DHT_Thermo_5.readHumidity();
     DerniereRequeteCapteurs = millis();
   }
 
@@ -421,7 +473,9 @@ void loop()
   {
     if (resultMinutes == 0 && resultSeconde < 11)
     {
-      ActivationPompe();
+      digitalWrite(Relai_Pompe, LOW);
+      delay(ValeurTempsDeVapo);
+      digitalWrite(Relai_Pompe, HIGH);
     }
   }
 
