@@ -1,16 +1,16 @@
-$(document).ready(function(){
-    $("#TempsBrumiActivate").click(function(){
+$(document).ready(function () {
+    $("#TempsBrumiActivate").click(function () {
         var valeur = $("#TempsBrumisation").val();
-        $.post("TempsBrumisation",{
+        $.post("TempsBrumisation", {
             TempsBrumisation: valeur
         });
     });
 });
 
-$(document).ready(function(){
-    $("#FrequenceBrumiActivate").click(function(){
+$(document).ready(function () {
+    $("#FrequenceBrumiActivate").click(function () {
         var valeur = $("#FrequenceBrumisation").val();
-        $.post("FrequenceBrumisation",{
+        $.post("FrequenceBrumisation", {
             FrequenceBrumisation: valeur
         });
     });
@@ -126,4 +126,6 @@ function Pompe_Activation() {
     xhttp.open("GET", "Pompe_Activation", true);
     xhttp.send();
 }
+
+
 

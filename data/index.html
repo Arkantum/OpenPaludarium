@@ -8,7 +8,6 @@
   <link rel="shortcut icon" href="favicon.ico">
   <script type="text/javascript" src="jquery-3.5.1.min.js"></script>
   <script type="text/javascript" src="script.js"></script>
-  <script type="text/javascript" src="gauge.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
     integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
@@ -54,28 +53,34 @@
   </div>
   <br>
   <table>
-  <tr>
-    <th><button onclick="Pompe_Activation()" class="w3-button w3-ripple w3-green" >BRUMISATION</button></th>
-    <th><button onclick="Rampe_Eclairage_On()" class="w3-button w3-ripple w3-yellow" >START LED</button></th>
-    <th><button onclick="Rampe_Eclairage_Off()" class="w3-button w3-ripple w3-red" >STOP LED</button></th>
-  </tr>
-  <tr>
-    <td><input type="range" id="TempsBrumisation" min="10" max="60" value="30" step="2"></td>  
-    <td><input type="range" id="FrequenceBrumisation" min="1" max="12" value="4" step="2"></td>
-    <td><input type="range" id="volume" min="0" max="100" value="90" step="10"></td>
-  </tr>
-  <tr>
-    <td><p><span id="TempsBrumisationAffiche"></span> secondes</p></td>
-    <td><p><span id="FrequenceBrumisationAffiche"></span> fois par jours</p></td>
-    <td><p><span id="Temps">00:00</span></p></td>
-  </tr>
-  <tr>
-    <td><button id="TempsBrumiActivate" >TEMPS DE BRUMISATION</button></td>
-    <td><button id="FrequenceBrumiActivate" >FREQUENCE DE BRUMISATION</button></td>
-    <td>HEURE LOCALE</td>
-  </tr>
-</table>
-<br>
+    <tr>
+      <th><button onclick="Pompe_Activation()" class="w3-button w3-ripple w3-green">BRUMISATION</button></th>
+      <th><button onclick="Rampe_Eclairage_On()" class="w3-button w3-ripple w3-yellow">START LED</button></th>
+      <th><button onclick="Rampe_Eclairage_Off()" class="w3-button w3-ripple w3-red">STOP LED</button></th>
+    </tr>
+    <tr>
+      <td><input type="range" id="TempsBrumisation" min="10" max="60" value="30" step="2"></td>
+      <td><input type="range" id="FrequenceBrumisation" min="1" max="12" value="4" step="2"></td>
+      <td><input type="range" id="volume" min="0" max="100" value="90" step="10"></td>
+    </tr>
+    <tr>
+      <td>
+        <p><span id="TempsBrumisationAffiche"></span> secondes</p>
+      </td>
+      <td>
+        <p><span id="FrequenceBrumisationAffiche"></span> fois par jours</p>
+      </td>
+      <td>
+        <p><span id="Temps">00:00</span></p>
+      </td>
+    </tr>
+    <tr>
+      <td><button id="TempsBrumiActivate">TEMPS DE BRUMISATION</button></td>
+      <td><button id="FrequenceBrumiActivate">FREQUENCE DE BRUMISATION</button></td>
+      <td>HEURE LOCALE</td>
+    </tr>
+  </table>
+  <br>
   <table>
     <tr>
       <th>CAPTEURS</th>
@@ -161,20 +166,16 @@
     var sliderBruT = document.getElementById("TempsBrumisation");
     var outputBruT = document.getElementById("TempsBrumisationAffiche");
     outputBruT.innerHTML = sliderBruT.value;
-    
-    sliderBruT.oninput = function() {
+    sliderBruT.oninput = function () {
       outputBruT.innerHTML = this.value;
     }
-
     var sliderBruF = document.getElementById("FrequenceBrumisation");
     var outputBruF = document.getElementById("FrequenceBrumisationAffiche");
     outputBruF.innerHTML = sliderBruF.value;
-    
-    sliderBruF.oninput = function() {
+    sliderBruF.oninput = function () {
       outputBruF.innerHTML = this.value;
     }
-    
-    </script>
+  </script>
 
 </body>
 <div class="w3-bar w3-card-4">

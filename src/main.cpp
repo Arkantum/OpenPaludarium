@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <DNSServer.h>
-#include <WebServer.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
@@ -17,6 +16,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <AsyncElegantOTA.h>
 
 //////----------Declaration Librarie----------//////
 
@@ -66,14 +66,11 @@ DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
 
 //////----------Setup Serveur----------//////
 
-
-
 #define CHAT_ID "ID de l'utilisateur"
 #define BOTtoken "Token du bot"
 
 const char *ssid = "OpenPaludarium";
-const char *password = "PaludariumOpen";
-
+const char *password = "Arkantum667";
 
 AsyncWebServer server(80);
 
@@ -88,6 +85,7 @@ UniversalTelegramBot bot(BOTtoken, client);
 
 Adafruit_SSD1306 display(128, 64, &Wire);
 
+
 //////----------Setup Serveur----------//////
 
 //////----------Setup variable----------//////
@@ -97,8 +95,8 @@ const int Minute = 60 * Seconde;
 const int Heure = Seconde * 3600;
 
 const int TempsDeVaporisation = 45;
-const int TempsDeBrumisation = 60*2; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
-const int FrequenceDeVapo = 4;      // Frequence de vaporisation en une journée
+const int TempsDeBrumisation = 60 * 2; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
+const int FrequenceDeVapo = 4;         // Frequence de vaporisation en une journée
 
 unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
 unsigned long ValeurFrequenceDeVapo = FrequenceDeVapo;
@@ -204,12 +202,6 @@ void handleNewMessages(int numNewMessages)
 
     if (text == "/Hygrometrie")
     {
-      while (sensors_Thermo_32.getTempCByIndex(0) == -127.00)
-      {
-        ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
-        delay(100);
-      }
-
       String Hygrometrie = "Hygrométrie : \n\n";
       Hygrometrie += "DHT22    :  " + String(DHT_Thermo_5.readHumidity()) + " % \n";
       bot.sendMessage(chat_id, Hygrometrie, "");
@@ -224,7 +216,7 @@ void handleNewMessages(int numNewMessages)
       digitalWrite(Relai_Pompe, HIGH);
     }
 
-        if (text == "/Brume")
+    if (text == "/Brume")
     {
       String pompe = "Brumisation activée pendant : " + String(ValeurTempsDeBrumi / 60000) + " minutes";
       bot.sendMessage(chat_id, pompe, "");
@@ -244,6 +236,8 @@ void ActivationPompe()
 
 void setup()
 {
+  digitalWrite(BUILTIN_LED, HIGH);
+
   Serial.begin(115200);
   Serial.println("\n");
 
@@ -424,9 +418,13 @@ void setup()
 
   //////----------SERVEUR COMMANDE---------//////
 
+  AsyncElegantOTA.begin(&server);
+  
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
   server.begin();
+  
+  digitalWrite(BUILTIN_LED, LOW);
 
   Serial.println("Serveur actif !");
 }
@@ -434,7 +432,7 @@ void setup()
 void loop()
 {
   //////----------Routine----------//////
-
+  AsyncElegantOTA.loop();
   int resultHeure = HeureActuel.toInt();
   int resultMinutes = MinutesActuel.toInt();
   int resultSeconde = SecondeActuel.toInt();
@@ -456,12 +454,6 @@ void loop()
     ActualisationTempsServeur();
     sensors_Thermo_32.requestTemperatures();
     sensors_Thermo_33.requestTemperatures();
-    // ValeurSensor_Thermo_32 = sensors_Thermo_32.getTempCByIndex(0);
-    // ValeurSensor_Thermo_33 = sensors_Thermo_33.getTempCByIndex(0);
-    // ValeurDHT_Thermo_4 = DHT_Thermo_4.readTemperature();
-    // ValeurDHT_Thermo_5 = DHT_Thermo_5.readTemperature();
-    // ValeurDHT_Humi_4 = DHT_Thermo_4.readHumidity();
-    // ValeurDHT_Humi_5 = DHT_Thermo_5.readHumidity();
     DerniereRequeteCapteurs = millis();
   }
 
@@ -492,19 +484,6 @@ void loop()
   //////----------Routine temporelle----------//////
 
   //////----------Eclairage----------//////
-
-  // if (Rampe_Eclairage_Temporaire == 1 && Rampe_Eclairage == 0)
-  // {
-  //   TempsMinutes = TempsTemporaire;
-  //   Rampe_Eclairage_Temporaire = 0;
-  //   Rampe_Eclairage = 1;
-  // }
-
-  // if (Rampe_Eclairage_Temporaire == 0 || TempsMinutes >= TempsTemporaire + TempsActivationManuel)
-  // {
-  //   Rampe_Eclairage = 0;
-  //   TempsTemporaire = 1500; //Temps minutes ne pourra jamais etre superieur a 1500
-  // }
 
   if (Rampe_Eclairage)
   {
