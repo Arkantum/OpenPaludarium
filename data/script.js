@@ -1,8 +1,26 @@
 $(document).ready(function () {
+    $("#TempsVapoActivate").click(function () {
+        var valeur = $("#TempsVaporisation").val();
+        $.post("TempsVaporisation", {
+            TempsVaporisation: valeur
+        });
+    });
+});
+
+$(document).ready(function () {
     $("#TempsBrumiActivate").click(function () {
         var valeur = $("#TempsBrumisation").val();
         $.post("TempsBrumisation", {
             TempsBrumisation: valeur
+        });
+    });
+});
+
+$(document).ready(function () {
+    $("#FrequenceVapoActivate").click(function () {
+        var valeur = $("#FrequenceVaporisation").val();
+        $.post("FrequenceVaporisation", {
+            FrequenceVaporisation: valeur
         });
     });
 });
@@ -15,6 +33,25 @@ $(document).ready(function () {
         });
     });
 });
+
+$(document).ready(function () {
+    $("#IDtelegramActivate").click(function () {
+        var valeur = $("#IDtelegram").val();
+        $.post("IDtelegram", {
+            IDtelegram: valeur
+        });
+    });
+});
+
+$(document).ready(function () {
+    $("#TOKENtelegramActivate").click(function () {
+        var valeur = $("#TOKENtelegram").val();
+        $.post("TOKENtelegram", {
+            TOKENtelegram: valeur
+        });
+    });
+});
+
 
 setInterval(function getData() {
     var xhttp = new XMLHttpRequest();

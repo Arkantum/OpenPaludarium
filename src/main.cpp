@@ -2,9 +2,8 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <DNSServer.h>
-#include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPAsyncWiFiManager.h>
 #include <SPIFFS.h>
 #include <DHT.h>
 #include <OneWire.h>
@@ -17,6 +16,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>
+#include <EEPROM.h>
 
 //////----------Declaration Librarie----------//////
 
@@ -31,7 +31,7 @@
 #define Relais_25 25 //Relai
 #define Relais_27 27 //Relai
 
-int Relai_Pompe = Relais_13;
+int Relai_Vapo = Relais_13;
 int Relai_Rampe_LED = Relais_16;
 int Relai_Brume = Relais_27;
 
@@ -48,6 +48,11 @@ int Relai_Brume = Relais_27;
 #define Niveau_39 39
 
 #define LED_BUILTIN 2
+
+#define EEPROM_SIZE 200
+
+String BOT_TOKEN;
+String USER_ID;
 
 //////----------Declaration PIN----------//////
 
@@ -66,57 +71,60 @@ DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
 
 //////----------Setup Serveur----------//////
 
-#define CHAT_ID "ID de l'utilisateur"
-#define BOTtoken "Token du bot"
-
 const char *ssid = "OpenPaludarium";
 const char *password = "Arkantum667";
 
 AsyncWebServer server(80);
-
-WiFiManager wifiManager;
+DNSServer dns;
+AsyncWiFiManager wifiManager(&server, &dns);
+WiFiClientSecure client;
 
 const char *ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 3600;
 const int daylightOffset_sec = 3600;
 
-WiFiClientSecure client;
-UniversalTelegramBot bot(BOTtoken, client);
-
 Adafruit_SSD1306 display(128, 64, &Wire);
 
+UniversalTelegramBot *bot;
 
 //////----------Setup Serveur----------//////
 
 //////----------Setup variable----------//////
 
+const int Adresse_TempsDeVapo = 0;
+const int Adresse_TempsDeBrumi = 1;
+const int Adresse_FrequenceDeVapo = 2;
+const int Adresse_FrequenceDeBrumi = 3;
+const int Adresse_TelegramBOT_ID = 100;
+const int Adresse_TelegramID = 50;
+
 const int Seconde = 1000;
 const int Minute = 60 * Seconde;
 const int Heure = Seconde * 3600;
 
-const int TempsDeVaporisation = 45;
-const int TempsDeBrumisation = 60 * 2; // TEMPS DE VAPORISATIONS DE BASE EN SECONDE
-const int FrequenceDeVapo = 4;         // Frequence de vaporisation en une journée
+int ValeurTempsDeVapo;
+int ValeurTempsDeBrumi;
+int ValeurFrequenceDeVapo;
+int ValeurFrequenceDeBrumi;
 
-unsigned long ValeurTempsDeVapo = Seconde * TempsDeVaporisation;
-unsigned long ValeurFrequenceDeVapo = FrequenceDeVapo;
-unsigned long ValeurTempsDeBrumi = Seconde * TempsDeBrumisation;
+int TempsDeVapo;
+int TempsDeBrumi;
+int FrequenceDeVapo;
+int FrequenceDeBrumi;
 
-bool Rampe_Eclairage = 0;
-bool Rampe_Eclairage_Temporaire = 1;
-bool Info_Relai_Pompe = 0;
+bool Info_Relai_LED = 0;
+bool Info_Relai_Vaporisation = 0;
+bool Info_Relai_Brumisation = 0;
 
 unsigned long TempsMinutes = 0;
-unsigned long TempsTemporaire = 1500;
 
 int DelaiRequeteBot = 1000;
+int DelaiRequeteCapteurs = 1000;
+
 unsigned long DerniereRequeteBot;
-
-int DelaiRequeteCapteurs = 5000;
 unsigned long DerniereRequeteCapteurs;
-
-int DelaiRequetePompe = 1000;
-unsigned long DerniereRequetePompe;
+unsigned long DerniereRequeteVaporisation;
+unsigned long DerniereRequeteBrumisation;
 
 String TempsActuel = "00:00";
 String HeureActuel = "0";
@@ -127,14 +135,18 @@ int resultMinutes = 0;
 int resultSeconde = 0;
 int ValeurBoucle;
 
-int ValeurDHT_Thermo_4;
-int ValeurDHT_Thermo_5;
-int ValeurSensor_Thermo_32;
-int ValeurSensor_Thermo_33;
-int ValeurDHT_Humi_4;
-int ValeurDHT_Humi_5;
-
 //////----------Setup variable----------//////
+
+void TelegramBot()
+{
+  EEPROM.begin(EEPROM_SIZE);
+  for (int k = Adresse_TelegramBOT_ID; k < Adresse_TelegramBOT_ID + 46; ++k)
+  {
+    BOT_TOKEN += char(EEPROM.read(k));
+  }
+  USER_ID = EEPROM.readString(Adresse_TelegramID);
+  bot = new UniversalTelegramBot(BOT_TOKEN, client);
+}
 
 void ActualisationTempsServeur()
 {
@@ -159,31 +171,58 @@ void ActualisationTempsServeur()
   TempsActuel = HeureActuel + ":" + MinutesActuel;
 }
 
-void handleNewMessages(int numNewMessages)
+void ActivationVapo()
 {
-  Serial.println("handleNewMessages");
-  Serial.println(String(numNewMessages));
+  digitalWrite(Relai_Vapo, LOW);
+  Info_Relai_Vaporisation = 1;
+  DerniereRequeteVaporisation = millis();
+}
 
-  for (int i = 0; i < numNewMessages; i++)
+void ActivationBrume()
+{
+  digitalWrite(Relai_Brume, LOW);
+  Info_Relai_Brumisation = 1;
+  DerniereRequeteBrumisation = millis();
+}
+
+void initialisation_eeprom()
+{
+  TempsDeVapo = EEPROM.read(Adresse_TempsDeVapo);
+  TempsDeBrumi = EEPROM.read(Adresse_TempsDeBrumi);
+  FrequenceDeVapo = EEPROM.read(Adresse_FrequenceDeVapo);
+  FrequenceDeBrumi = EEPROM.read(Adresse_FrequenceDeBrumi);
+}
+
+void ecriture_eeprom(int address, int param)
+{
+  EEPROM.write(address, param);
+  EEPROM.commit();
+}
+
+void Message_Recu(int NombreMessagesRecu)
+{
+  Serial.println(String(NombreMessagesRecu));
+
+  for (int i = 0; i < NombreMessagesRecu; i++)
   {
     // Chat id of the requester
-    String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID)
+    String chat_id = String(bot->messages[i].chat_id);
+    if (chat_id != USER_ID)
     {
-      bot.sendMessage(chat_id, "Utilisateur non autorisée", "");
+      bot->sendMessage(chat_id, "Utilisateur non enregistrée", "");
       continue;
     }
 
     // Print the received message
-    String text = bot.messages[i].text;
+    String text = bot->messages[i].text;
     Serial.println(text);
 
-    String from_name = bot.messages[i].from_name;
+    String from_name = bot->messages[i].from_name;
 
     if (text == "/start")
     {
       String keyboardJson = "[[\"/Hygrometrie\", \"/Temperature\"],[\"/Vaporisation\"],[\"/Brume\"],[\"/Lumiere\"]]";
-      bot.sendMessageWithReplyKeyboard(chat_id, "Que voulez vous ?", "", keyboardJson, true);
+      bot->sendMessageWithReplyKeyboard(chat_id, "Que voulez vous ?", "", keyboardJson, true);
     }
 
     if (text == "/Temperature")
@@ -197,41 +236,30 @@ void handleNewMessages(int numNewMessages)
       String Temperature = "Température : \n\n";
       Temperature += "DS18B20  :  " + String(ValeurBoucle) + " ºC \n";
       Temperature += "DHT22    :  " + String(DHT_Thermo_5.readTemperature()) + " ºC \n";
-      bot.sendMessage(chat_id, Temperature, "");
+      bot->sendMessage(chat_id, Temperature, "");
     }
 
     if (text == "/Hygrometrie")
     {
       String Hygrometrie = "Hygrométrie : \n\n";
       Hygrometrie += "DHT22    :  " + String(DHT_Thermo_5.readHumidity()) + " % \n";
-      bot.sendMessage(chat_id, Hygrometrie, "");
+      bot->sendMessage(chat_id, Hygrometrie, "");
     }
 
     if (text == "/Vaporisation")
     {
-      String pompe = "Vaporisation activée pendant : " + String(ValeurTempsDeVapo / 1000) + " secondes";
-      bot.sendMessage(chat_id, pompe, "");
-      digitalWrite(Relai_Pompe, LOW);
-      delay(ValeurTempsDeVapo);
-      digitalWrite(Relai_Pompe, HIGH);
+      String pompe = "Vaporisation activée pendant : " + String(TempsDeVapo) + " secondes";
+      bot->sendMessage(chat_id, pompe, "");
+      ActivationVapo();
     }
 
     if (text == "/Brume")
     {
-      String pompe = "Brumisation activée pendant : " + String(ValeurTempsDeBrumi / 60000) + " minutes";
-      bot.sendMessage(chat_id, pompe, "");
-      digitalWrite(Relai_Brume, LOW);
-      delay(ValeurTempsDeBrumi);
-      digitalWrite(Relai_Brume, HIGH);
+      String pompe = "Brumisation activée pendant : " + String(TempsDeBrumi) + " minutes";
+      bot->sendMessage(chat_id, pompe, "");
+      ActivationBrume();
     }
   }
-}
-
-void ActivationPompe()
-{
-  digitalWrite(Relai_Pompe, LOW);
-  delay(ValeurTempsDeVapo);
-  digitalWrite(Relai_Pompe, HIGH);
 }
 
 void setup()
@@ -290,39 +318,42 @@ void setup()
   //////----------SPIFFS---------//////
 
   //////----------WIFI SETUP---------//////
-
   Serial.begin(115200);
   Serial.println("\n");
-  wifiManager.autoConnect(ssid, password);
-  //WiFi.begin(ssid, password);
-  Serial.print("Tentative de connexion...");
-
-  // while (WiFi.status() != WL_CONNECTED)
-  // {
-  //   Serial.print(".");
-  //   digitalWrite(LED_BUILTIN, HIGH);
-  //   delay(100);
-  //   digitalWrite(LED_BUILTIN, LOW);
-  // }
-
-  Serial.println("\n");
-  Serial.println("Connexion etablie!");
-  Serial.print("Adresse IP: ");
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
   {
     Serial.println(F("SSD1306 allocation failed"));
   }
 
+  initialisation_eeprom();
+  TelegramBot();
+
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
+
+  display.clearDisplay();
+  display.setCursor(10, 0);
+  display.println("Info de connexion");
+  display.setCursor(0, 25);
+  display.println("SSID : OpenPaludarium");
+  display.setCursor(10, 45);
+  display.println("MDP : Arkantum667");
+  display.display();
+
+  wifiManager.autoConnect(ssid, password);
+
+  Serial.println("Connexion etablie !");
+  Serial.print("Adresse IP: ");
+
+  display.clearDisplay();
   display.setCursor(40, 0);
   display.println("IPv6 info");
-  display.setCursor(30, 20);
+  display.setCursor(30, 25);
   display.println(WiFi.localIP());
   Serial.println(WiFi.localIP());
-  display.setCursor(15, 40);
+  display.setCursor(15, 45);
   display.println(WiFi.macAddress());
   display.display();
 
@@ -380,19 +411,28 @@ void setup()
     request->send(200, "text/plain", TempsActuel);
   });
 
-  server.on("/Rampe_Eclairage_On", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Rampe_Eclairage_Temporaire = 1;
+  server.on("/Info_Relai_LED_On", HTTP_GET, [](AsyncWebServerRequest *request) {
+    Info_Relai_LED = 1;
     request->send(204);
   });
-  server.on("/Rampe_Eclairage_Off", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Rampe_Eclairage_Temporaire = 0;
+  server.on("/Info_Relai_LED_Off", HTTP_GET, [](AsyncWebServerRequest *request) {
+    Info_Relai_LED = 0;
     request->send(204);
   });
 
   server.on("/Pompe_Activation", HTTP_GET, [](AsyncWebServerRequest *request) {
-    digitalWrite(Relai_Pompe, LOW);
-    Info_Relai_Pompe = 1;
-    DerniereRequetePompe = millis();
+    ActivationVapo();
+    request->send(204);
+  });
+
+  server.on("/TempsVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("TempsVaporisation", true))
+    {
+      String message;
+      message = request->getParam("TempsVaporisation", true)->value();
+      ValeurTempsDeVapo = message.toInt();
+      ecriture_eeprom(Adresse_TempsDeVapo, ValeurTempsDeVapo);
+    }
     request->send(204);
   });
 
@@ -401,7 +441,19 @@ void setup()
     {
       String message;
       message = request->getParam("TempsBrumisation", true)->value();
-      ValeurTempsDeVapo = message.toInt() * Seconde;
+      ValeurTempsDeBrumi = message.toInt();
+      ecriture_eeprom(Adresse_TempsDeBrumi, ValeurTempsDeBrumi);
+    }
+    request->send(204);
+  });
+
+  server.on("/FrequenceVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("FrequenceVaporisation", true))
+    {
+      String message;
+      message = request->getParam("FrequenceVaporisation", true)->value();
+      ValeurFrequenceDeVapo = message.toInt();
+      ecriture_eeprom(Adresse_FrequenceDeVapo, ValeurFrequenceDeVapo);
     }
     request->send(204);
   });
@@ -411,40 +463,65 @@ void setup()
     {
       String message;
       message = request->getParam("FrequenceBrumisation", true)->value();
-      ValeurFrequenceDeVapo = message.toInt();
+      ValeurFrequenceDeBrumi = message.toInt();
+      ecriture_eeprom(Adresse_FrequenceDeBrumi, ValeurFrequenceDeBrumi);
+    }
+    request->send(204);
+  });
+
+  server.on("/IDtelegram", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("IDtelegram", true))
+    {
+      String message = request->getParam("IDtelegram", true)->value();
+      Serial.println(message);
+      EEPROM.writeString(Adresse_TelegramID, message);
+      EEPROM.commit();
+    }
+    request->send(204);
+  });
+
+  server.on("/TOKENtelegram", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("TOKENtelegram", true))
+    {
+      String message = request->getParam("TOKENtelegram", true)->value();
+      Serial.println(message);
+      for (int i = 0; i < message.length(); ++i)
+      {
+        EEPROM.write(Adresse_TelegramBOT_ID + i, message[i]);
+      }
+      EEPROM.commit();
     }
     request->send(204);
   });
 
   //////----------SERVEUR COMMANDE---------//////
 
-  AsyncElegantOTA.begin(&server);
-  
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
+  AsyncElegantOTA.begin(&server);
   server.begin();
-  
+
   digitalWrite(BUILTIN_LED, LOW);
 
   Serial.println("Serveur actif !");
+
+  Serial.println(BOT_TOKEN);
+  Serial.println(USER_ID);
 }
 
 void loop()
 {
   //////----------Routine----------//////
   AsyncElegantOTA.loop();
-  int resultHeure = HeureActuel.toInt();
-  int resultMinutes = MinutesActuel.toInt();
-  int resultSeconde = SecondeActuel.toInt();
 
   if (millis() > DerniereRequeteBot + DelaiRequeteBot)
   {
-    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-    while (numNewMessages)
+    int NombreMessagesRecu = bot->getUpdates(bot->last_message_received + 1);
+    while (NombreMessagesRecu)
     {
       Serial.println("Reponse recu");
-      handleNewMessages(numNewMessages);
-      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+      Message_Recu(NombreMessagesRecu);
+      NombreMessagesRecu = bot->getUpdates(bot->last_message_received + 1);
     }
     DerniereRequeteBot = millis();
   }
@@ -452,6 +529,10 @@ void loop()
   if (millis() > DerniereRequeteCapteurs + DelaiRequeteCapteurs)
   {
     ActualisationTempsServeur();
+    initialisation_eeprom();
+    resultHeure = HeureActuel.toInt();
+    resultMinutes = MinutesActuel.toInt();
+    resultSeconde = SecondeActuel.toInt();
     sensors_Thermo_32.requestTemperatures();
     sensors_Thermo_33.requestTemperatures();
     DerniereRequeteCapteurs = millis();
@@ -463,29 +544,27 @@ void loop()
 
   if (resultHeure == 8 || resultHeure == 12 || resultHeure == 16 || resultHeure == 20)
   {
-    if (resultMinutes == 0 && resultSeconde < 11)
+    if (resultMinutes == 0 && resultSeconde < 5)
     {
-      digitalWrite(Relai_Pompe, LOW);
-      delay(ValeurTempsDeVapo);
-      digitalWrite(Relai_Pompe, HIGH);
+      ActivationVapo();
     }
   }
 
   if (TempsMinutes >= 480 && TempsMinutes < 1200) //Journée
   {
-    Rampe_Eclairage = 1;
+    Info_Relai_LED = 1;
   }
 
   if (TempsMinutes < 480 && TempsMinutes >= 1200) //Nuit
   {
-    Rampe_Eclairage = 0;
+    Info_Relai_LED = 0;
   }
 
   //////----------Routine temporelle----------//////
 
   //////----------Eclairage----------//////
 
-  if (Rampe_Eclairage)
+  if (Info_Relai_LED)
   {
     digitalWrite(Relai_Rampe_LED, LOW);
   }
@@ -494,21 +573,24 @@ void loop()
     digitalWrite(Relai_Rampe_LED, HIGH);
   }
 
-  if (Info_Relai_Pompe)
+  if (Info_Relai_Vaporisation)
   {
-    delay(ValeurTempsDeVapo);
-    digitalWrite(Relai_Pompe, HIGH);
-    Info_Relai_Pompe = 0;
+    if (millis() > DerniereRequeteVaporisation + (EEPROM.read(Adresse_TempsDeVapo) * Seconde))
+    {
+      digitalWrite(Relai_Vapo, HIGH);
+      Info_Relai_Vaporisation = 0;
+      DerniereRequeteVaporisation = 24 * Heure;
+    }
   }
 
+  if (Info_Relai_Brumisation)
+  {
+    if (millis() > DerniereRequeteBrumisation + (EEPROM.read(Adresse_TempsDeBrumi) * Minute))
+    {
+      digitalWrite(Relai_Brume, HIGH);
+      Info_Relai_Brumisation = 0;
+      DerniereRequeteBrumisation = 24 * Heure;
+    }
+  }
   //////----------Eclairage----------//////
-
-  //////----------Alerte Telegram----------//////
-
-  if (millis() > DerniereRequetePompe + DelaiRequetePompe)
-  {
-    DerniereRequetePompe = millis();
-  }
-
-  //////----------Alerte Telegram----------//////
 }
