@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Le paludarium</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8" />
+  <link rel="stylesheet" type="text/css" href="w3.css">
+  <link rel="shortcut icon" href="favicon.ico">
+  <script type="text/javascript" src="jquery-3.5.1.min.js"></script>
+  <script type="text/javascript" src="script.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+    integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+</head>
+
+<body>
+
+<br>
+<table>
+  <tr>
+    <th><button onclick="window.location='/'" class="w3-button w3-ripple w3-green">DONNEES</button></th>
+    <th><button onclick="window.location='/reglage'" class="w3-button w3-ripple w3-yellow">REGLAGE</button></th>
+    <th><button onclick="window.location='/update'" class="w3-button w3-ripple w3-red">UPDATE</button></th>
+  </tr>
+  <tr>
+    <td><input type="range" id="TempsVaporisation" min="10" max="100" value="30" step="1"></td>
+    <td><input type="range" id="TempsBrumisation" min="1" max="100" value="10" step="1"></td>
+    <td>HEURE LOCALE</td>
+  </tr>
+  <tr>
+    <td>
+      <p><span id="TempsVaporisationAffiche"></span> secondes</p>
+    </td>
+    <td>
+      <p><span id="TempsBrumisationAffiche"></span> minutes</p>
+    </td>
+    <td>
+      <p><span id="Temps">00:00</span></p>
+    </td>
+  </tr>
+  <tr>
+    <td><button id="TempsVapoActivate">TEMPS DE VAPORISATION</button></td>
+    <td><button id="TempsBrumiActivate">TEMPS DE BRUMISATION</button></td>
+    <td><button id="IDtelegramActivate" class="w3-button w3-ripple w3-blue">ID Utilisateur :</button></td>
+  </tr>
+  <tr>
+    <td><input type="range" id="FrequenceVaporisation" min="1" max="12" value="4" step="1"></td>
+    <td><input type="range" id="FrequenceBrumisation" min="1" max="12" value="8" step="1"></td>
+    <td>
+      <div class="form-example">
+        <input type="text" name="IDtelegram" id="IDtelegram" required>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <p><span id="FrequenceVaporisationAffiche"></span> fois par jours</p>
+    </td>
+    <td>
+      <p><span id="FrequenceBrumisationAffiche"></span> fois par jours</p>
+    </td>
+    <td>
+      <p><button id="TOKENtelegramActivate" class="w3-button w3-ripple w3-blue">Token BOT :</button></p>
+    </td>
+  </tr>
+  <tr>
+    <td><button id="FrequenceVapoActivate">FREQUENCE DE VAPORISATION</button></td>
+    <td><button id="FrequenceBrumiActivate">FREQUENCE DE BRUMISATION</button></td>
+    <td>
+      <div class="form-example">
+        <input type="text" name="TOKENtelegram" id="TOKENtelegram" required>
+      </div>
+    </td>
+  </tr>
+</table>
+<br>
+
+<table>
+  <tr>
+    <th>CAPTEURS</th>
+    <th>PINS</th>
+    <th>LOCALISATION</th>
+    <th>UNITE DE MESURE</th>
+    <th>VALEURS</th>
+  </tr>
+  <tr>
+    <td><span class="sensor">DHT22</span></td>
+    <td>4</td>
+    <td>Partie haute</td>
+    <td><span class="sensorTempérature">Température</span></td>
+    <td><span id="Temp_Thermo_4">0</span> °C</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">DHT22</span></td>
+    <td>4</td>
+    <td>Sol</td>
+    <td><span class="sensorHumidité">Humidité</span></td>
+    <td><span id="Humi_Thermo_4">0</span> %</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">DHT22</span></td>
+    <td>5</td>
+    <td>Partie haute</td>
+    <td><span class="sensorTempérature">Température</span></td>
+    <td><span id="Temp_Thermo_5">0</span> °C</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">DHT22</span></td>
+    <td>5</td>
+    <td>Sol</td>
+    <td><span class="sensorHumidité">Humidité</span></td>
+    <td><span id="Humi_Thermo_5">0</span> %</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">BMP180</span></td>
+    <td>I2C</td>
+    <td>Bassin inférieur</td>
+    <td><span class="sensorTempérature">Température</span></td>
+    <td><span id="Temp_Thermo_5">0</span> °C</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">BMP180</span></td>
+    <td>I2C</td>
+    <td>Bassin inférieur</td>
+    <td><span class="sensorHumidité">Humidité</span></td>
+    <td><span id="Temp_Thermo_5">0</span> %</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">BMP180</span></td>
+    <td>I2C</td>
+    <td>Bassin inférieur</td>
+    <td><span class="sensor">Pression</span></td>
+    <td><span id="Temp_Thermo_5">0</span> hPa</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">DS18B20</span></td>
+    <td>33</td>
+    <td>Bassin inférieur</td>
+    <td><span class="sensorTempérature">Température</span></td>
+    <td><span id="Temp_Thermo_33">0</span> °C</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">DS18B20</span></td>
+    <td>32</td>
+    <td>Température de l'eau osmosé</td>
+    <td><span class="sensorTempérature">Température</span></td>
+    <td><span id="Temp_Thermo_32">0</span> °C</td>
+  </tr>
+  <tr>
+    <td><span class="sensor">HW-038</span></td>
+    <td>34</td>
+    <td>Reservoir eau osmosé</td>
+    <td><span class="sensorHumidité">Niveau d'eau</span></td>
+    <td><span id="Temp_Thermo">0</span> %</td>
+  </tr>
+</table>
+<br>
+
+<script>
+  var sliderTempsVaporisation = document.getElementById("TempsVaporisation");
+  var outputTempsVaporisation = document.getElementById("TempsVaporisationAffiche");
+  outputTempsVaporisation.innerHTML = sliderTempsVaporisation.value;
+  sliderTempsVaporisation.oninput = function () {
+    outputTempsVaporisation.innerHTML = this.value;
+  }
+
+  var sliderTempsBrumisation = document.getElementById("TempsBrumisation");
+  var outputTempsBrumisation = document.getElementById("TempsBrumisationAffiche");
+  outputTempsBrumisation.innerHTML = sliderTempsBrumisation.value;
+  sliderTempsBrumisation.oninput = function () {
+    outputTempsBrumisation.innerHTML = this.value;
+  }
+
+  var sliderFrequenceVaporisation = document.getElementById("FrequenceVaporisation");
+  var outputFrequenceVaporisation = document.getElementById("FrequenceVaporisationAffiche");
+  outputFrequenceVaporisation.innerHTML = sliderFrequenceVaporisation.value;
+  sliderFrequenceVaporisation.oninput = function () {
+    outputFrequenceVaporisation.innerHTML = this.value;
+  }
+
+  var sliderFrequenceBrumisation = document.getElementById("FrequenceBrumisation");
+  var outputFrequenceBrumisation = document.getElementById("FrequenceBrumisationAffiche");
+  outputFrequenceBrumisation.innerHTML = sliderFrequenceBrumisation.value;
+  sliderFrequenceBrumisation.oninput = function () {
+    outputFrequenceBrumisation.innerHTML = this.value;
+  }  
+</script>
+
+</body>
+
+
+
+
+
+
+</html>

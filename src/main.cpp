@@ -22,17 +22,17 @@
 
 //////----------Declaration PIN----------//////
 
-#define Relais_13 13 //Relai Pompe
-#define Relais_16 16 //Relai Rampe LED
-#define Relais_17 17 //Relai
-#define Relais_18 18 //Relai
-#define Relais_19 19 //Relai
-#define Relais_23 23 //Relai
-#define Relais_25 25 //Relai
-#define Relais_27 27 //Relai
+#define Relais_13 13 //Relai 5
+#define Relais_16 16 //Relai 1
+#define Relais_17 17 //Relai 2
+#define Relais_18 18 //Relai 3
+#define Relais_19 19 //Relai 4
+#define Relais_23 23 //Relai 7
+#define Relais_25 25 //Relai 8
+#define Relais_27 27 //Relai 6
 
 int Relai_Vapo = Relais_13;
-int Relai_Rampe_LED = Relais_16;
+int Relai_Rampe_LED = Relais_25;
 int Relai_Brume = Relais_27;
 
 #define Thermo_4 4   //dht22 (temp and humidity)
@@ -115,6 +115,7 @@ int FrequenceDeBrumi;
 bool Info_Relai_LED = 0;
 bool Info_Relai_Vaporisation = 0;
 bool Info_Relai_Brumisation = 0;
+bool Info_Relai_Pompe = 0;
 
 unsigned long TempsMinutes = 0;
 
@@ -125,6 +126,12 @@ unsigned long DerniereRequeteBot;
 unsigned long DerniereRequeteCapteurs;
 unsigned long DerniereRequeteVaporisation;
 unsigned long DerniereRequeteBrumisation;
+
+int ListeHeuresVapo[12];
+int HeureIndiceVapo;
+int ListeHeuresBrumi[12];
+int HeureIndiceBrumi;
+int HeureAllumage = 12;
 
 String TempsActuel = "00:00";
 String HeureActuel = "0";
@@ -167,8 +174,11 @@ void ActualisationTempsServeur()
     MinutesActuel = "0" + MinutesActuel;
   }
   SecondeActuel = timeinfo.tm_sec;
-  TempsMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+  //TempsMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
   TempsActuel = HeureActuel + ":" + MinutesActuel;
+  resultHeure = HeureActuel.toInt();
+  resultMinutes = MinutesActuel.toInt();
+  resultSeconde = SecondeActuel.toInt();
 }
 
 void ActivationVapo()
@@ -227,8 +237,13 @@ void Message_Recu(int NombreMessagesRecu)
 
     if (text == "/Temperature")
     {
+      int test = millis();
       while (sensors_Thermo_32.getTempCByIndex(0) == -127.00)
       {
+        if (millis() > test + 10000)
+        {
+          break;
+        }
         ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
         delay(100);
       }
@@ -290,6 +305,12 @@ void setup()
   digitalWrite(Relais_27, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_G, OUTPUT);
+
+  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_R, LOW);
+  digitalWrite(LED_G, LOW);
 
   DHT_Thermo_4.begin();
   DHT_Thermo_5.begin();
@@ -301,6 +322,7 @@ void setup()
   if (!SPIFFS.begin())
   {
     Serial.println("Erreur SPIFFS...");
+    digitalWrite(LED_R, HIGH);
     return;
   }
 
@@ -324,6 +346,9 @@ void setup()
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
   {
     Serial.println(F("SSD1306 allocation failed"));
+    digitalWrite(LED_R, HIGH);
+    delay(1000);
+    digitalWrite(LED_R, LOW);
   }
 
   initialisation_eeprom();
@@ -342,6 +367,7 @@ void setup()
   display.println("MDP : Arkantum667");
   display.display();
 
+  digitalWrite(LED_R, HIGH);
   wifiManager.autoConnect(ssid, password);
 
   Serial.println("Connexion etablie !");
@@ -365,6 +391,15 @@ void setup()
     request->send(SPIFFS, "/index.html", "text/html");
   });
 
+  server.on("/reglage", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/datamodifier.html", "text/html");
+  });
+
+  server.on("/courbe", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/curb.html", "text/html");
+  });
+
+
   server.on("/w3.css", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/w3.css", "text/css");
   });
@@ -375,6 +410,10 @@ void setup()
 
   server.on("/jquery-3.5.1.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/jquery-3.5.1.min.js", "text/javascript");
+  });
+
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/favicon.png", "image/png");
   });
 
   //////----------SERVEUR---------//////
@@ -502,6 +541,8 @@ void setup()
   server.begin();
 
   digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(LED_R, LOW);
+  digitalWrite(LED_G, HIGH);
 
   Serial.println("Serveur actif !");
 
@@ -513,6 +554,8 @@ void loop()
 {
   //////----------Routine----------//////
   AsyncElegantOTA.loop();
+
+  delay(100);
 
   if (millis() > DerniereRequeteBot + DelaiRequeteBot)
   {
@@ -530,48 +573,60 @@ void loop()
   {
     ActualisationTempsServeur();
     initialisation_eeprom();
-    resultHeure = HeureActuel.toInt();
-    resultMinutes = MinutesActuel.toInt();
-    resultSeconde = SecondeActuel.toInt();
     sensors_Thermo_32.requestTemperatures();
     sensors_Thermo_33.requestTemperatures();
+    HeureIndiceVapo = HeureAllumage / FrequenceDeVapo;
+    for (int i = 0; i < 12; ++i)
+    {
+      ListeHeuresVapo[i] = int(8 + i * HeureIndiceVapo);
+    }
+    HeureIndiceBrumi = HeureAllumage / FrequenceDeBrumi;
+    for (int i = 0; i < 12; ++i)
+    {
+      ListeHeuresBrumi[i] = int(8 + i * HeureIndiceBrumi);
+    }
+    if (resultHeure == 20)
+    {
+      if (resultMinutes == 2 && resultSeconde < 5)
+      {
+        ESP.restart();
+      }
+    }
+    if (resultHeure >= 8 && resultHeure < 20) //Journée
+    {
+      digitalWrite(Relai_Rampe_LED, LOW);
+    }
+    if (resultHeure < 8 && resultHeure >= 20) //Nuit
+    {
+      digitalWrite(Relai_Rampe_LED, HIGH);
+    }
     DerniereRequeteCapteurs = millis();
   }
 
   //////----------Routine----------//////
 
   //////----------Routine temporelle----------//////
-
-  if (resultHeure == 8 || resultHeure == 12 || resultHeure == 16 || resultHeure == 20)
+  for (int Indice = 0; Indice < 12; ++Indice)
   {
-    if (resultMinutes == 0 && resultSeconde < 5)
+    if (resultHeure == ListeHeuresVapo[Indice])
     {
-      ActivationVapo();
+      if (resultMinutes == 0 && resultSeconde < 5)
+      {
+        ActivationVapo();
+      }
     }
-  }
-
-  if (TempsMinutes >= 480 && TempsMinutes < 1200) //Journée
-  {
-    Info_Relai_LED = 1;
-  }
-
-  if (TempsMinutes < 480 && TempsMinutes >= 1200) //Nuit
-  {
-    Info_Relai_LED = 0;
+    if (resultHeure == ListeHeuresBrumi[Indice])
+    {
+      if (resultMinutes == 0 && resultSeconde < 5)
+      {
+        ActivationBrume();
+      }
+    }
   }
 
   //////----------Routine temporelle----------//////
 
   //////----------Eclairage----------//////
-
-  if (Info_Relai_LED)
-  {
-    digitalWrite(Relai_Rampe_LED, LOW);
-  }
-  else
-  {
-    digitalWrite(Relai_Rampe_LED, HIGH);
-  }
 
   if (Info_Relai_Vaporisation)
   {
@@ -592,5 +647,6 @@ void loop()
       DerniereRequeteBrumisation = 24 * Heure;
     }
   }
+
   //////----------Eclairage----------//////
 }

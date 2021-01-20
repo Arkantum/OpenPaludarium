@@ -20,59 +20,9 @@
   <br>
   <table>
     <tr>
-      <th><button onclick="Pompe_Activation()" class="w3-button w3-ripple w3-green">BRUMISATION</button></th>
-      <th><button onclick="Rampe_Eclairage_On()" class="w3-button w3-ripple w3-yellow">START LED</button></th>
-      <th><button onclick="Rampe_Eclairage_Off()" class="w3-button w3-ripple w3-red">STOP LED</button></th>
-    </tr>
-    <tr>
-      <td><input type="range" id="TempsVaporisation" min="10" max="100" value="30" step="1"></td>
-      <td><input type="range" id="TempsBrumisation" min="1" max="100" value="10" step="1"></td>
-      <td>HEURE LOCALE</td>
-    </tr>
-    <tr>
-      <td>
-        <p><span id="TempsVaporisationAffiche"></span> secondes</p>
-      </td>
-      <td>
-        <p><span id="TempsBrumisationAffiche"></span> minutes</p>
-      </td>
-      <td>
-        <p><span id="Temps">00:00</span></p>
-      </td>
-    </tr>
-    <tr>
-      <td><button id="TempsVapoActivate">TEMPS DE VAPORISATION</button></td>
-      <td><button id="TempsBrumiActivate">TEMPS DE BRUMISATION</button></td>
-      <td><button id="IDtelegramActivate" class="w3-button w3-ripple w3-blue">ID Utilisateur :</button></td>
-    </tr>
-    <tr>
-      <td><input type="range" id="FrequenceVaporisation" min="1" max="20" value="4" step="1"></td>
-      <td><input type="range" id="FrequenceBrumisation" min="1" max="20" value="8" step="1"></td>
-      <td>
-        <div class="form-example">
-          <input type="text" name="IDtelegram" id="IDtelegram" required>
-        </div>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <p><span id="FrequenceVaporisationAffiche"></span> fois par jours</p>
-      </td>
-      <td>
-        <p><span id="FrequenceBrumisationAffiche"></span> fois par jours</p>
-      </td>
-      <td>
-        <p><button id="TOKENtelegramActivate" class="w3-button w3-ripple w3-blue">Token BOT :</button></p>
-      </td>
-    </tr>
-    <tr>
-      <td><button id="FrequenceVapoActivate">FREQUENCE DE VAPORISATION</button></td>
-      <td><button id="FrequenceBrumiActivate">FREQUENCE DE BRUMISATION</button></td>
-      <td>
-        <div class="form-example">
-          <input type="text" name="TOKENtelegram" id="TOKENtelegram" required>
-        </div>
-      </td>
+      <th><button onclick="window.location='/'" class="w3-button w3-ripple w3-green">DONNEES</button></th>
+      <th><button onclick="window.location='/reglage'" class="w3-button w3-ripple w3-yellow">REGLAGE</button></th>
+      <th><button onclick="window.location='/update'" class="w3-button w3-ripple w3-red">UPDATE</button></th>
     </tr>
   </table>
   <br>
