@@ -17,6 +17,7 @@
 #include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>
 #include <EEPROM.h>
+#include <Tone32.h>
 
 //////----------Declaration Librarie----------//////
 
@@ -43,6 +44,7 @@ int Relai_Brume = Relais_27;
 #define BandeauLED 12 //ws2812b led
 #define LED_R 14
 #define LED_G 15
+#define BUZZER 26
 
 #define Niveau_36 36 //Capteur analogique pour le niveau d'eau
 #define Niveau_39 39
@@ -142,7 +144,22 @@ int resultMinutes = 0;
 int resultSeconde = 0;
 int ValeurBoucle;
 
+float lastTemp_32;
+float lastTemp_33;
+
 //////----------Setup variable----------//////
+
+void playPassed()
+{
+  tone(BUZZER, NOTE_B4, 500, 0);
+  noTone(BUZZER, 0);
+}
+
+void playFailed()
+{
+  tone(BUZZER, NOTE_C4, 500, 0);
+  noTone(BUZZER, 0);
+}
 
 void TelegramBot()
 {
@@ -209,6 +226,13 @@ void ecriture_eeprom(int address, int param)
   EEPROM.commit();
 }
 
+void LedAlert()
+{
+  digitalWrite(LED_G, HIGH);
+  delay(100);
+  digitalWrite(LED_G, LOW);
+}
+
 void Message_Recu(int NombreMessagesRecu)
 {
   Serial.println(String(NombreMessagesRecu));
@@ -237,19 +261,10 @@ void Message_Recu(int NombreMessagesRecu)
 
     if (text == "/Temperature")
     {
-      int test = millis();
-      while (sensors_Thermo_32.getTempCByIndex(0) == -127.00)
-      {
-        if (millis() > test + 10000)
-        {
-          break;
-        }
-        ValeurBoucle = sensors_Thermo_32.getTempCByIndex(0);
-        delay(100);
-      }
-
       String Temperature = "Température : \n\n";
-      Temperature += "DS18B20  :  " + String(ValeurBoucle) + " ºC \n";
+      Temperature += "DS18B20  :  " + String(lastTemp_32) + " ºC \n";
+      Temperature += "DS18B20  :  " + String(lastTemp_33) + " ºC \n";
+      Temperature += "DHT22    :  " + String(DHT_Thermo_4.readTemperature()) + " ºC \n";
       Temperature += "DHT22    :  " + String(DHT_Thermo_5.readTemperature()) + " ºC \n";
       bot->sendMessage(chat_id, Temperature, "");
     }
@@ -257,6 +272,7 @@ void Message_Recu(int NombreMessagesRecu)
     if (text == "/Hygrometrie")
     {
       String Hygrometrie = "Hygrométrie : \n\n";
+      Hygrometrie += "DHT22    :  " + String(DHT_Thermo_4.readHumidity()) + " % \n";
       Hygrometrie += "DHT22    :  " + String(DHT_Thermo_5.readHumidity()) + " % \n";
       bot->sendMessage(chat_id, Hygrometrie, "");
     }
@@ -399,7 +415,6 @@ void setup()
     request->send(SPIFFS, "/curb.html", "text/html");
   });
 
-
   server.on("/w3.css", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/w3.css", "text/css");
   });
@@ -412,7 +427,7 @@ void setup()
     request->send(SPIFFS, "/jquery-3.5.1.min.js", "text/javascript");
   });
 
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/favicon.png", "image/png");
   });
 
@@ -429,11 +444,11 @@ void setup()
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_32", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(sensors_Thermo_32.getTempCByIndex(0));
+    String temperature = String(lastTemp_32);
     request->send(200, "text/plain", temperature);
   });
   server.on("/Temp_Thermo_33", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(sensors_Thermo_33.getTempCByIndex(0));
+    String temperature = String(lastTemp_33);
     request->send(200, "text/plain", temperature);
   });
 
@@ -515,6 +530,8 @@ void setup()
       Serial.println(message);
       EEPROM.writeString(Adresse_TelegramID, message);
       EEPROM.commit();
+      LedAlert();
+      playFailed();
     }
     request->send(204);
   });
@@ -529,6 +546,8 @@ void setup()
         EEPROM.write(Adresse_TelegramBOT_ID + i, message[i]);
       }
       EEPROM.commit();
+      LedAlert();
+      playPassed();
     }
     request->send(204);
   });
@@ -548,6 +567,9 @@ void setup()
 
   Serial.println(BOT_TOKEN);
   Serial.println(USER_ID);
+
+  delay(1000);
+  digitalWrite(LED_G, LOW);
 }
 
 void loop()
@@ -575,6 +597,17 @@ void loop()
     initialisation_eeprom();
     sensors_Thermo_32.requestTemperatures();
     sensors_Thermo_33.requestTemperatures();
+
+    if (sensors_Thermo_32.getTempCByIndex(0) != -127.00)
+    {
+      lastTemp_32 = sensors_Thermo_32.getTempCByIndex(0);
+    }
+
+    if (sensors_Thermo_33.getTempCByIndex(0) != -127.00)
+    {
+      lastTemp_33 = sensors_Thermo_33.getTempCByIndex(0);
+    }
+
     HeureIndiceVapo = HeureAllumage / FrequenceDeVapo;
     for (int i = 0; i < 12; ++i)
     {
