@@ -56,6 +56,15 @@ int Relai_Brume = Relais_27;
 String BOT_TOKEN;
 String USER_ID;
 
+String choixObjet1;
+String choixObjet2;
+String choixObjet3;
+String choixObjet4;
+String choixObjet5;
+String choixObjet6;
+String choixObjet7;
+String choixObjet8;
+
 //////----------Declaration PIN----------//////
 
 //////----------Setup sensors----------//////
@@ -97,6 +106,14 @@ const int Adresse_TempsDeVapo = 0;
 const int Adresse_TempsDeBrumi = 1;
 const int Adresse_FrequenceDeVapo = 2;
 const int Adresse_FrequenceDeBrumi = 3;
+const int Adresse_choixObjet1 = 4;
+const int Adresse_choixObjet2 = 5;
+const int Adresse_choixObjet3 = 6;
+const int Adresse_choixObjet4 = 7;
+const int Adresse_choixObjet5 = 8;
+const int Adresse_choixObjet6 = 9;
+const int Adresse_choixObjet7 = 10;
+const int Adresse_choixObjet8 = 11;
 const int Adresse_TelegramBOT_ID = 100;
 const int Adresse_TelegramID = 50;
 
@@ -218,12 +235,28 @@ void initialisation_eeprom()
   TempsDeBrumi = EEPROM.read(Adresse_TempsDeBrumi);
   FrequenceDeVapo = EEPROM.read(Adresse_FrequenceDeVapo);
   FrequenceDeBrumi = EEPROM.read(Adresse_FrequenceDeBrumi);
+  choixObjet1 = EEPROM.readString(Adresse_choixObjet1);
+  choixObjet2 = EEPROM.readString(Adresse_choixObjet2);
+  choixObjet3 = EEPROM.readString(Adresse_choixObjet3);
+  choixObjet4 = EEPROM.readString(Adresse_choixObjet4);
+  choixObjet5 = EEPROM.readString(Adresse_choixObjet5);
+  choixObjet6 = EEPROM.readString(Adresse_choixObjet6);
+  choixObjet7 = EEPROM.readString(Adresse_choixObjet7);
+  choixObjet8 = EEPROM.readString(Adresse_choixObjet8);
 }
 
 void ecriture_eeprom(int address, int param)
 {
   EEPROM.write(address, param);
   EEPROM.commit();
+  initialisation_eeprom();
+}
+
+void ecriture_eepromSTRING(int address, String param)
+{
+  EEPROM.writeString(address, param);
+  EEPROM.commit();
+  initialisation_eeprom();
 }
 
 void LedAlert()
@@ -235,7 +268,6 @@ void LedAlert()
 
 void Message_Recu(int NombreMessagesRecu)
 {
-  Serial.println(String(NombreMessagesRecu));
 
   for (int i = 0; i < NombreMessagesRecu; i++)
   {
@@ -427,8 +459,8 @@ void setup()
     request->send(SPIFFS, "/jquery-3.5.1.min.js", "text/javascript");
   });
 
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/favicon.png", "image/png");
+  server.on("/favicon.svg", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/favicon.svg", "image/svg");
   });
 
   //////----------SERVEUR---------//////
@@ -478,6 +510,12 @@ void setup()
     ActivationVapo();
     request->send(204);
   });
+
+  server.on("/choixObjet1Affiche", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String choix = String(choixObjet1);
+    request->send(200, "text/plain", choix);
+  });
+
 
   server.on("/TempsVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
     if (request->hasParam("TempsVaporisation", true))
@@ -548,6 +586,39 @@ void setup()
       EEPROM.commit();
       LedAlert();
       playPassed();
+    }
+    request->send(204);
+  });
+
+  server.on("/choixObjet1", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("choixObjet1", true))
+    {
+      String message;
+      message = request->getParam("choixObjet1", true)->value();
+      choixObjet1 = message.toInt();
+      ecriture_eepromSTRING(Adresse_choixObjet1, choixObjet1);
+    }
+    request->send(204);
+  });
+
+  server.on("/choixObjet2", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("choixObjet2", true))
+    {
+      String message;
+      message = request->getParam("choixObjet2", true)->value();
+      choixObjet1 = message.toInt();
+      ecriture_eepromSTRING(Adresse_choixObjet2, choixObjet2);
+    }
+    request->send(204);
+  });
+
+  server.on("/choixObjet3", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("choixObjet3", true))
+    {
+      String message;
+      message = request->getParam("choixObjet3", true)->value();
+      choixObjet3 = message.toInt();
+      ecriture_eepromSTRING(Adresse_choixObjet3, choixObjet3);
     }
     request->send(204);
   });

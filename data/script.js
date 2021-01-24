@@ -52,6 +52,15 @@ $(document).ready(function () {
     });
 });
 
+$(document).ready(function () {
+    $("#appliquerchoixObjet1").click(function () {
+        var valeur = $("#choixObjet1").val();
+        $.post("choixObjet1", {
+            choixObjet1: valeur
+        });
+    });
+});
+
 
 setInterval(function getData() {
     var xhttp = new XMLHttpRequest();
@@ -144,6 +153,19 @@ setInterval(function getData() {
     xhttp.open("GET", "Temps", true);
     xhttp.send();
 }, 1000);
+
+setInterval(function getData() {
+    var xhttp = new XMLHttpRequest();
+
+    xhttp.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("choixObjet1Affiche").innerHTML = this.responseText;
+        }
+    };
+
+    xhttp.open("GET", "choixObjet1Affiche", true);
+    xhttp.send();
+}, 2000);
 
 
 function Rampe_Eclairage_On() {
