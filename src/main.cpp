@@ -83,7 +83,7 @@ DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
 //////----------Setup Serveur----------//////
 
 const char *ssid = "OpenPaludarium";
-const char *password = "Arkantum667";
+const char *password = "Arkantum2020";
 
 AsyncWebServer server(80);
 DNSServer dns;
@@ -751,6 +751,5 @@ void loop()
       DerniereRequeteBrumisation = 24 * Heure;
     }
   }
-
   //////----------Eclairage----------//////
 }

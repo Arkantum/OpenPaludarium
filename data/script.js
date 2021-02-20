@@ -168,18 +168,6 @@ setInterval(function getData() {
 }, 2000);
 
 
-function Rampe_Eclairage_On() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("GET", "Rampe_Eclairage_On", true);
-    xhttp.send();
-}
-
-function Rampe_Eclairage_Off() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("GET", "Rampe_Eclairage_Off", true);
-    xhttp.send();
-}
-
 function Pompe_Activation() {
     var xhttp = new XMLHttpRequest();
     xhttp.open("GET", "Pompe_Activation", true);
