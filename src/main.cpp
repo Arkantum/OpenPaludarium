@@ -475,14 +475,6 @@ void setup()
     request->send(SPIFFS, "/index.html", "text/html");
   });
 
-  server.on("/reglage", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/datamodifier.html", "text/html");
-  });
-
-  server.on("/courbe", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/curb.html", "text/html");
-  });
-
   server.on("/w3.css", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/w3.css", "text/css");
   });
@@ -641,15 +633,15 @@ void setup()
   Serial.println(BOT_TOKEN);
   Serial.println(USER_ID);
 
-  JsonArray Temps = rootJson.createNestedArray("Temps"); // stockage temps actuel
+  // JsonArray Temps = rootJson.createNestedArray("Temps"); // stockage temps actuel
 
-  JsonArray T_1 = rootJson.createNestedArray("T_1"); // température dht
-  JsonArray T_2 = rootJson.createNestedArray("T_2");
-  JsonArray T_3 = rootJson.createNestedArray("T_3"); // température ds1820b
-  JsonArray T_4 = rootJson.createNestedArray("T_4");
+  // JsonArray T_1 = rootJson.createNestedArray("T_1"); // température dht
+  // JsonArray T_2 = rootJson.createNestedArray("T_2");
+  // JsonArray T_3 = rootJson.createNestedArray("T_3"); // température ds1820b
+  // JsonArray T_4 = rootJson.createNestedArray("T_4");
 
-  JsonArray H_1 = rootJson.createNestedArray("H_1"); // humidité
-  JsonArray H_2 = rootJson.createNestedArray("H_2");
+  // JsonArray H_1 = rootJson.createNestedArray("H_1"); // humidité
+  // JsonArray H_2 = rootJson.createNestedArray("H_2");
 
   serializeJson(rootJson, buffer);
 
