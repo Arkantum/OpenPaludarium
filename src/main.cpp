@@ -13,70 +13,66 @@
 #include <WiFiClientSecure.h>
 #include <SPI.h>
 #include <Wire.h>
+#include <Adafruit_Sensor.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <AsyncElegantOTA.h>
 #include <EEPROM.h>
 #include <Tone32.h>
+#include <Adafruit_BME280.h>
 
 //////----------Declaration Librarie----------//////
 
 //////----------Declaration PIN----------//////
 
-#define Relais_13 13 //Relai 5
-#define Relais_16 16 //Relai 1
-#define Relais_17 17 //Relai 2
-#define Relais_18 18 //Relai 3
-#define Relais_19 19 //Relai 4
-#define Relais_23 23 //Relai 7
-#define Relais_25 25 //Relai 8
-#define Relais_27 27 //Relai 6
+#define Relais_1 16 //Relai 1
+#define Relais_2 17 //Relai 2
+#define Relais_3 18 //Relai 3
+#define Relais_4 19 //Relai 4
+#define Relais_5 13 //Relai 5
+#define Relais_6 27 //Relai 6
+#define Relais_7 23 //Relai 7
+#define Relais_8 25 //Relai 8
 
-int Relai_Vapo = Relais_13;
-int Relai_Rampe_LED = Relais_25;
-int Relai_Brume = Relais_27;
+int Relai_Vapo = Relais_5;
+int Relai_Rampe_LED = Relais_8;
+int Relai_Brume = Relais_6;
 
-#define Thermo_4 4   //dht22 (temp and humidity)
-#define Thermo_5 5   //dht22 (temp and humidity)
-#define Thermo_32 32 //DS18B20 (temp only)
-#define Thermo_33 33 //DS18B20 (temp only)
+#define Pin_Thermo_1 4  //dht22 (temp and humidity)
+#define Pin_Thermo_2 5  //dht22 (temp and humidity)
+#define Pin_Thermo_3 32 //DS18B20 (temp only)
+#define Pin_Thermo_4 33 //DS18B20 (temp only)
 
 #define BandeauLED 12 //ws2812b led
 #define LED_R 14
 #define LED_G 15
 #define BUZZER 26
 
-#define Niveau_36 36 //Capteur analogique pour le niveau d'eau
-#define Niveau_39 39
+#define Niveau_1 36
+#define Niveau_2 39
 
 #define LED_BUILTIN 2
 
 #define EEPROM_SIZE 200
 
-String BOT_TOKEN;
-String USER_ID;
+#define HISTORY_FILE "/history.json"
 
-String choixObjet1;
-String choixObjet2;
-String choixObjet3;
-String choixObjet4;
-String choixObjet5;
-String choixObjet6;
-String choixObjet7;
-String choixObjet8;
+String BOT_TOKEN, USER_ID, USER_ID2;
+
+bool D1, D2, D3, D4, D5, D6, D7, D8;
 
 //////----------Declaration PIN----------//////
 
 //////----------Setup sensors----------//////
 
-DHT DHT_Thermo_4(Thermo_4, DHT22);
-DHT DHT_Thermo_5(Thermo_5, DHT22);
+DHT Thermo_1(Pin_Thermo_1, DHT22);
+DHT Thermo_2(Pin_Thermo_2, DHT22);
 
-OneWire oneWire_Thermo_32(Thermo_32);
-DallasTemperature sensors_Thermo_32(&oneWire_Thermo_32);
+OneWire oneWire_1(Pin_Thermo_3);
+DallasTemperature Thermo_3(&oneWire_1);
 
-OneWire oneWire_Thermo_33(Thermo_33);
-DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
+OneWire oneWire_2(Pin_Thermo_4);
+DallasTemperature Thermo_4(&oneWire_2);
 
 //////----------Setup sensors----------//////
 
@@ -85,18 +81,29 @@ DallasTemperature sensors_Thermo_33(&oneWire_Thermo_33);
 const char *ssid = "OpenPaludarium";
 const char *password = "Arkantum2020";
 
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 3600;
+const int daylightOffset_sec = 3600;
+
 AsyncWebServer server(80);
 DNSServer dns;
 AsyncWiFiManager wifiManager(&server, &dns);
 WiFiClientSecure client;
 
-const char *ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = 3600;
-const int daylightOffset_sec = 3600;
-
 Adafruit_SSD1306 display(128, 64, &Wire);
 
 UniversalTelegramBot *bot;
+
+Adafruit_BME280 bme;
+
+File root = SPIFFS.open("/");
+File file = root.openNextFile();
+
+StaticJsonDocument<1000> data;
+
+JsonObject rootJson = data.to<JsonObject>();
+
+char buffer[1000];
 
 //////----------Setup Serveur----------//////
 
@@ -106,16 +113,9 @@ const int Adresse_TempsDeVapo = 0;
 const int Adresse_TempsDeBrumi = 1;
 const int Adresse_FrequenceDeVapo = 2;
 const int Adresse_FrequenceDeBrumi = 3;
-const int Adresse_choixObjet1 = 4;
-const int Adresse_choixObjet2 = 5;
-const int Adresse_choixObjet3 = 6;
-const int Adresse_choixObjet4 = 7;
-const int Adresse_choixObjet5 = 8;
-const int Adresse_choixObjet6 = 9;
-const int Adresse_choixObjet7 = 10;
-const int Adresse_choixObjet8 = 11;
 const int Adresse_TelegramBOT_ID = 100;
 const int Adresse_TelegramID = 50;
+const int Adresse_TelegramID2 = 51;
 
 const int Seconde = 1000;
 const int Minute = 60 * Seconde;
@@ -159,14 +159,33 @@ String SecondeActuel = "0";
 int resultHeure = 0;
 int resultMinutes = 0;
 int resultSeconde = 0;
+
+unsigned long intervaleHistorique = 4 * Heure;
+unsigned long PrecedentTestHistorique = 0;
+
+unsigned long intervaleRoutine = 1 * Minute;
+unsigned long PrecedentTestRoutine = 0;
+
 int ValeurBoucle;
 
-float lastTemp_32;
-float lastTemp_33;
+float ValeurT = 0;
+float ValeurH = 0;
+float ValeurP = 0;
+
+float ValeurT_1 = 0;
+float ValeurT_2 = 0;
+float ValeurT_3 = 0;
+float ValeurT_4 = 0;
+
+float ValeurH_1 = 0;
+float ValeurH_2 = 0;
+
+float ValeurN_1 = 0;
+float ValeurN_2 = 0;
 
 //////----------Setup variable----------//////
 
-void playPassed()
+void playSuccess()
 {
   tone(BUZZER, NOTE_B4, 500, 0);
   noTone(BUZZER, 0);
@@ -186,6 +205,7 @@ void TelegramBot()
     BOT_TOKEN += char(EEPROM.read(k));
   }
   USER_ID = EEPROM.readString(Adresse_TelegramID);
+  USER_ID2 = EEPROM.readString(Adresse_TelegramID2);
   bot = new UniversalTelegramBot(BOT_TOKEN, client);
 }
 
@@ -235,14 +255,6 @@ void initialisation_eeprom()
   TempsDeBrumi = EEPROM.read(Adresse_TempsDeBrumi);
   FrequenceDeVapo = EEPROM.read(Adresse_FrequenceDeVapo);
   FrequenceDeBrumi = EEPROM.read(Adresse_FrequenceDeBrumi);
-  choixObjet1 = EEPROM.readString(Adresse_choixObjet1);
-  choixObjet2 = EEPROM.readString(Adresse_choixObjet2);
-  choixObjet3 = EEPROM.readString(Adresse_choixObjet3);
-  choixObjet4 = EEPROM.readString(Adresse_choixObjet4);
-  choixObjet5 = EEPROM.readString(Adresse_choixObjet5);
-  choixObjet6 = EEPROM.readString(Adresse_choixObjet6);
-  choixObjet7 = EEPROM.readString(Adresse_choixObjet7);
-  choixObjet8 = EEPROM.readString(Adresse_choixObjet8);
 }
 
 void ecriture_eeprom(int address, int param)
@@ -273,7 +285,7 @@ void Message_Recu(int NombreMessagesRecu)
   {
     // Chat id of the requester
     String chat_id = String(bot->messages[i].chat_id);
-    if (chat_id != USER_ID)
+    if (chat_id != USER_ID && chat_id != USER_ID2)
     {
       bot->sendMessage(chat_id, "Utilisateur non enregistrée", "");
       continue;
@@ -294,19 +306,28 @@ void Message_Recu(int NombreMessagesRecu)
     if (text == "/Temperature")
     {
       String Temperature = "Température : \n\n";
-      Temperature += "DS18B20  :  " + String(lastTemp_32) + " ºC \n";
-      Temperature += "DS18B20  :  " + String(lastTemp_33) + " ºC \n";
-      Temperature += "DHT22    :  " + String(DHT_Thermo_4.readTemperature()) + " ºC \n";
-      Temperature += "DHT22    :  " + String(DHT_Thermo_5.readTemperature()) + " ºC \n";
+      Temperature += "BME280   :  " + String(ValeurT) + " ºC \n";
+      Temperature += "DHT22    :  " + String(ValeurT_1) + " ºC \n";
+      Temperature += "DHT22    :  " + String(ValeurT_2) + " ºC \n";
+      Temperature += "DS18B20  :  " + String(ValeurT_3) + " ºC \n";
+      Temperature += "DS18B20  :  " + String(ValeurT_4) + " ºC \n";
       bot->sendMessage(chat_id, Temperature, "");
     }
 
     if (text == "/Hygrometrie")
     {
       String Hygrometrie = "Hygrométrie : \n\n";
-      Hygrometrie += "DHT22    :  " + String(DHT_Thermo_4.readHumidity()) + " % \n";
-      Hygrometrie += "DHT22    :  " + String(DHT_Thermo_5.readHumidity()) + " % \n";
+      Hygrometrie += "BME280   :  " + String(ValeurH) + " ºC \n";
+      Hygrometrie += "DHT22    :  " + String(ValeurH_1) + " % \n";
+      Hygrometrie += "DHT22    :  " + String(ValeurH_2) + " % \n";
       bot->sendMessage(chat_id, Hygrometrie, "");
+    }
+
+    if (text == "/Pression")
+    {
+      String Pression = "Pression : \n\n";
+      Pression += "BME280   :  " + String(ValeurP) + " hPa \n";
+      bot->sendMessage(chat_id, Pression, "");
     }
 
     if (text == "/Vaporisation")
@@ -334,34 +355,36 @@ void setup()
 
   //////----------Attribution---------//////
 
-  pinMode(Relais_13, OUTPUT);
-  pinMode(Relais_16, OUTPUT);
-  pinMode(Relais_17, OUTPUT);
-  pinMode(Relais_18, OUTPUT);
-  pinMode(Relais_19, OUTPUT);
-  pinMode(Relais_23, OUTPUT);
-  pinMode(Relais_25, OUTPUT);
-  pinMode(Relais_27, OUTPUT);
+  pinMode(Relais_1, OUTPUT);
+  pinMode(Relais_2, OUTPUT);
+  pinMode(Relais_3, OUTPUT);
+  pinMode(Relais_4, OUTPUT);
+  pinMode(Relais_5, OUTPUT);
+  pinMode(Relais_6, OUTPUT);
+  pinMode(Relais_7, OUTPUT);
+  pinMode(Relais_8, OUTPUT);
 
-  digitalWrite(Relais_13, HIGH); //High = Relais en position basse (logique inversé)
-  digitalWrite(Relais_16, HIGH);
-  digitalWrite(Relais_17, HIGH);
-  digitalWrite(Relais_18, HIGH);
-  digitalWrite(Relais_19, HIGH);
-  digitalWrite(Relais_23, HIGH);
-  digitalWrite(Relais_25, HIGH);
-  digitalWrite(Relais_27, HIGH);
+  digitalWrite(Relais_1, HIGH); //High = Relais en position basse (logique inversé)
+  digitalWrite(Relais_2, HIGH);
+  digitalWrite(Relais_3, HIGH);
+  digitalWrite(Relais_4, HIGH);
+  digitalWrite(Relais_5, HIGH);
+  digitalWrite(Relais_6, HIGH);
+  digitalWrite(Relais_7, HIGH);
+  digitalWrite(Relais_8, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_R, OUTPUT);
   pinMode(LED_G, OUTPUT);
 
-  digitalWrite(LED_BUILTIN, LOW);
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, LOW);
+  digitalWrite(LED_BUILTIN, HIGH);
+  digitalWrite(LED_R, HIGH);
+  digitalWrite(LED_G, HIGH);
 
-  DHT_Thermo_4.begin();
-  DHT_Thermo_5.begin();
+  Thermo_1.begin();
+  Thermo_2.begin();
+
+  initialisation_eeprom();
 
   //////----------Attribution---------//////
 
@@ -374,9 +397,6 @@ void setup()
     return;
   }
 
-  File root = SPIFFS.open("/");
-  File file = root.openNextFile();
-
   while (file)
   {
     Serial.print("Fichier : ");
@@ -388,19 +408,33 @@ void setup()
   //////----------SPIFFS---------//////
 
   //////----------WIFI SETUP---------//////
+
   Serial.begin(115200);
   Serial.println("\n");
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
   {
-    Serial.println(F("SSD1306 allocation failed"));
+    Serial.println("Ecran non branché");
+    digitalWrite(LED_R, HIGH);
+    delay(1000);
+    digitalWrite(LED_R, LOW);
+    delay(1000);
+    digitalWrite(LED_R, HIGH);
+    delay(1000);
+    digitalWrite(LED_R, LOW);
+    delay(1000);
     digitalWrite(LED_R, HIGH);
     delay(1000);
     digitalWrite(LED_R, LOW);
   }
 
-  initialisation_eeprom();
-  TelegramBot();
+  if (!bme.begin(0x76, &Wire))
+  {
+    Serial.println("Capteur interne non branché");
+    digitalWrite(LED_R, HIGH);
+    delay(1000);
+    digitalWrite(LED_R, LOW);
+  }
 
   display.clearDisplay();
   display.setTextSize(1);
@@ -414,8 +448,8 @@ void setup()
   display.setCursor(10, 45);
   display.println("MDP : Arkantum667");
   display.display();
-
   digitalWrite(LED_R, HIGH);
+
   wifiManager.autoConnect(ssid, password);
 
   Serial.println("Connexion etablie !");
@@ -430,6 +464,8 @@ void setup()
   display.setCursor(15, 45);
   display.println(WiFi.macAddress());
   display.display();
+
+  Wire.begin();
 
   //////----------WIFI SETUP---------//////
 
@@ -467,98 +503,28 @@ void setup()
 
   //////----------SERVEUR COMMANDE---------//////
 
-  server.on("/Temp_Thermo_4", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(DHT_Thermo_4.readTemperature());
-    request->send(200, "text/plain", temperature);
-  });
-  server.on("/Temp_Thermo_5", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(DHT_Thermo_5.readTemperature());
-    request->send(200, "text/plain", temperature);
-  });
-  server.on("/Temp_Thermo_32", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(lastTemp_32);
-    request->send(200, "text/plain", temperature);
-  });
-  server.on("/Temp_Thermo_33", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String temperature = String(lastTemp_33);
-    request->send(200, "text/plain", temperature);
-  });
-
-  server.on("/Humi_Thermo_4", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(DHT_Thermo_4.readHumidity());
-    request->send(200, "text/plain", Humidite);
-  });
-  server.on("/Humi_Thermo_5", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String Humidite = String(DHT_Thermo_5.readHumidity());
-    request->send(200, "text/plain", Humidite);
+  server.on("/mesures.json", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String json = "{\"Temperature\":\"" + String(ValeurT) + " °C" + "\",";
+    json += "\"Humidite\":\"" + String(ValeurH) + " %" + "\",";
+    json += "\"Pression\":\"" + String(ValeurP) + " hPa" + "\"}";
+    request->send(200, "application/json", json);
+    Serial.println("Send measures");
   });
 
   server.on("/Temps", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", TempsActuel);
   });
 
-  server.on("/Info_Relai_LED_On", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Info_Relai_LED = 1;
-    request->send(204);
-  });
-  server.on("/Info_Relai_LED_Off", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Info_Relai_LED = 0;
-    request->send(204);
-  });
-
-  server.on("/Pompe_Activation", HTTP_GET, [](AsyncWebServerRequest *request) {
-    ActivationVapo();
-    request->send(204);
-  });
-
-  server.on("/choixObjet1Affiche", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String choix = String(choixObjet1);
-    request->send(200, "text/plain", choix);
-  });
-
-
-  server.on("/TempsVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("TempsVaporisation", true))
-    {
-      String message;
-      message = request->getParam("TempsVaporisation", true)->value();
-      ValeurTempsDeVapo = message.toInt();
-      ecriture_eeprom(Adresse_TempsDeVapo, ValeurTempsDeVapo);
-    }
-    request->send(204);
-  });
-
-  server.on("/TempsBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("TempsBrumisation", true))
-    {
-      String message;
-      message = request->getParam("TempsBrumisation", true)->value();
-      ValeurTempsDeBrumi = message.toInt();
-      ecriture_eeprom(Adresse_TempsDeBrumi, ValeurTempsDeBrumi);
-    }
-    request->send(204);
-  });
-
-  server.on("/FrequenceVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("FrequenceVaporisation", true))
-    {
-      String message;
-      message = request->getParam("FrequenceVaporisation", true)->value();
-      ValeurFrequenceDeVapo = message.toInt();
-      ecriture_eeprom(Adresse_FrequenceDeVapo, ValeurFrequenceDeVapo);
-    }
-    request->send(204);
-  });
-
-  server.on("/FrequenceBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("FrequenceBrumisation", true))
-    {
-      String message;
-      message = request->getParam("FrequenceBrumisation", true)->value();
-      ValeurFrequenceDeBrumi = message.toInt();
-      ecriture_eeprom(Adresse_FrequenceDeBrumi, ValeurFrequenceDeBrumi);
-    }
-    request->send(204);
+  server.on("/tabmesures.json", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String json = "[";
+    float temp = rootJson["T_1"][0];
+    json += "{\"mesure\":\"T_1\",\"valeur\":\"" + String(ValeurT_1) + "\",\"unite\":\" °C\",\"glyph\":\"glyphicon-indent-left\",\"precedente\":\"" + String(temp) + "\"},";
+    temp = rootJson["H_1"][0];
+    json += "{\"mesure\":\"H_1\",\"valeur\":\"" + String(ValeurH_1) + "\",\"unite\":\" %\",\"glyph\":\"glyphicon-tint\",\"precedente\":\"" + String(temp) + "\"},";
+    temp = rootJson["N_1"][0];
+    json += "{\"mesure\":\"N_1\",\"valeur\":\"" + String(ValeurN_1) + "\",\"unite\":\" %\",\"glyph\":\"glyphicon-dashboard\",\"precedente\":\"" + String(temp) + "\"}";
+    json += "]";
+    request->send(200, "application/json", json);
   });
 
   server.on("/IDtelegram", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -569,9 +535,26 @@ void setup()
       EEPROM.writeString(Adresse_TelegramID, message);
       EEPROM.commit();
       LedAlert();
-      playFailed();
+      playSuccess();
     }
     request->send(204);
+  });
+
+  server.on("/IDtelegram2", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("IDtelegram2", true))
+    {
+      String message = request->getParam("IDtelegram2", true)->value();
+      Serial.println(message);
+      EEPROM.writeString(Adresse_TelegramID2, message);
+      EEPROM.commit();
+      LedAlert();
+      playSuccess();
+    }
+    request->send(204);
+  });
+
+  server.on("/IDtelegramEnregistre", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", USER_ID);
   });
 
   server.on("/TOKENtelegram", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -585,41 +568,60 @@ void setup()
       }
       EEPROM.commit();
       LedAlert();
-      playPassed();
+      playSuccess();
     }
     request->send(204);
   });
 
-  server.on("/choixObjet1", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("choixObjet1", true))
+  server.on("/TOKENtelegramEnregistre", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", BOT_TOKEN);
+  });
+
+  server.on("/TempsVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("TempsVaporisation", true))
     {
       String message;
-      message = request->getParam("choixObjet1", true)->value();
-      choixObjet1 = message.toInt();
-      ecriture_eepromSTRING(Adresse_choixObjet1, choixObjet1);
+      message = request->getParam("TempsVaporisation", true)->value();
+      ValeurTempsDeVapo = message.toInt();
+      ecriture_eeprom(Adresse_TempsDeVapo, ValeurTempsDeVapo);
+    }
+    playSuccess();
+    request->send(204);
+  });
+
+  server.on("/TempsBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("TempsBrumisation", true))
+    {
+      String message;
+      message = request->getParam("TempsBrumisation", true)->value();
+      ValeurTempsDeBrumi = message.toInt();
+      ecriture_eeprom(Adresse_TempsDeBrumi, ValeurTempsDeBrumi);
+      playSuccess();
     }
     request->send(204);
   });
 
-  server.on("/choixObjet2", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("choixObjet2", true))
+  server.on("/FrequenceVaporisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("FrequenceVaporisation", true))
     {
       String message;
-      message = request->getParam("choixObjet2", true)->value();
-      choixObjet1 = message.toInt();
-      ecriture_eepromSTRING(Adresse_choixObjet2, choixObjet2);
+      message = request->getParam("FrequenceVaporisation", true)->value();
+      ValeurFrequenceDeVapo = message.toInt();
+      ecriture_eeprom(Adresse_FrequenceDeVapo, ValeurFrequenceDeVapo);
     }
+    playSuccess();
     request->send(204);
   });
 
-  server.on("/choixObjet3", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("choixObjet3", true))
+  server.on("/FrequenceBrumisation", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("FrequenceBrumisation", true))
     {
       String message;
-      message = request->getParam("choixObjet3", true)->value();
-      choixObjet3 = message.toInt();
-      ecriture_eepromSTRING(Adresse_choixObjet3, choixObjet3);
+      message = request->getParam("FrequenceBrumisation", true)->value();
+      ValeurFrequenceDeBrumi = message.toInt();
+      ecriture_eeprom(Adresse_FrequenceDeBrumi, ValeurFrequenceDeBrumi);
     }
+    playSuccess();
     request->send(204);
   });
 
@@ -639,8 +641,24 @@ void setup()
   Serial.println(BOT_TOKEN);
   Serial.println(USER_ID);
 
+  JsonArray Temps = rootJson.createNestedArray("Temps"); // stockage temps actuel
+
+  JsonArray T_1 = rootJson.createNestedArray("T_1"); // température dht
+  JsonArray T_2 = rootJson.createNestedArray("T_2");
+  JsonArray T_3 = rootJson.createNestedArray("T_3"); // température ds1820b
+  JsonArray T_4 = rootJson.createNestedArray("T_4");
+
+  JsonArray H_1 = rootJson.createNestedArray("H_1"); // humidité
+  JsonArray H_2 = rootJson.createNestedArray("H_2");
+
+  serializeJson(rootJson, buffer);
+
+  TelegramBot();
+
   delay(1000);
   digitalWrite(LED_G, LOW);
+
+  Serial.println(buffer);
 }
 
 void loop()
@@ -648,36 +666,60 @@ void loop()
   //////----------Routine----------//////
   AsyncElegantOTA.loop();
 
-  delay(100);
-
   if (millis() > DerniereRequeteBot + DelaiRequeteBot)
   {
     int NombreMessagesRecu = bot->getUpdates(bot->last_message_received + 1);
     while (NombreMessagesRecu)
     {
-      Serial.println("Reponse recu");
+      Serial.println("Message recu !");
       Message_Recu(NombreMessagesRecu);
       NombreMessagesRecu = bot->getUpdates(bot->last_message_received + 1);
     }
     DerniereRequeteBot = millis();
   }
 
+  if (millis() > intervaleRoutine + PrecedentTestRoutine)
+  {
+    ValeurT = bme.readTemperature();
+    ValeurH = bme.readHumidity();
+    ValeurP = bme.readPressure() / 100.0;
+    if (!(isnan(Thermo_1.readTemperature())))
+    {
+      ValeurT_1 = Thermo_1.readTemperature();
+    }
+    if (!(isnan(Thermo_2.readTemperature())))
+    {
+      ValeurT_2 = Thermo_2.readTemperature();
+    }
+    if (!(isnan(Thermo_1.readHumidity())))
+    {
+      ValeurH_1 = Thermo_1.readHumidity();
+    }
+    if (!(isnan(ValeurH_2 = Thermo_2.readHumidity())))
+    {
+      ValeurH_2 = Thermo_2.readHumidity();
+    }
+    Thermo_3.requestTemperatures();
+    Thermo_4.requestTemperatures();
+    if (Thermo_3.getTempCByIndex(0) != -127.00)
+    {
+      ValeurT_3 = Thermo_3.getTempCByIndex(0);
+    }
+    if (Thermo_4.getTempCByIndex(0) != -127.00)
+    {
+      ValeurT_4 = Thermo_4.getTempCByIndex(0);
+    }
+
+    ValeurN_1 = (analogRead(Niveau_1) / 4096) * 100;
+    ValeurN_2 = (analogRead(Niveau_2) / 4096) * 100;
+  }
+
   if (millis() > DerniereRequeteCapteurs + DelaiRequeteCapteurs)
   {
     ActualisationTempsServeur();
     initialisation_eeprom();
-    sensors_Thermo_32.requestTemperatures();
-    sensors_Thermo_33.requestTemperatures();
-
-    if (sensors_Thermo_32.getTempCByIndex(0) != -127.00)
-    {
-      lastTemp_32 = sensors_Thermo_32.getTempCByIndex(0);
-    }
-
-    if (sensors_Thermo_33.getTempCByIndex(0) != -127.00)
-    {
-      lastTemp_33 = sensors_Thermo_33.getTempCByIndex(0);
-    }
+    Thermo_3.requestTemperatures();
+    Thermo_4.requestTemperatures();
 
     HeureIndiceVapo = HeureAllumage / FrequenceDeVapo;
     for (int i = 0; i < 12; ++i)
