@@ -51,8 +51,6 @@ int Relai_Brume = Relais_6;
 #define Niveau_1 36
 #define Niveau_2 39
 
-#define LED_BUILTIN 2
-
 #define EEPROM_SIZE 200
 
 #define HISTORY_FILE "/history.json"
@@ -102,6 +100,23 @@ File file = root.openNextFile();
 StaticJsonDocument<1000> data;
 
 JsonObject rootJson = data.to<JsonObject>();
+
+JsonArray Temps = rootJson.createNestedArray("Temps"); // stockage temps actuel
+
+JsonArray T_1 = rootJson.createNestedArray("T_1"); // température dht
+JsonArray T_2 = rootJson.createNestedArray("T_2");
+JsonArray T_3 = rootJson.createNestedArray("T_3"); // température ds1820b
+JsonArray T_4 = rootJson.createNestedArray("T_4");
+
+JsonArray H_1 = rootJson.createNestedArray("H_1"); // humidité
+JsonArray H_2 = rootJson.createNestedArray("H_2");
+
+JsonArray P_1 = rootJson.createNestedArray("P_1");
+
+JsonArray barT_1 = rootJson.createNestedArray("barT_1");
+JsonArray barH_1 = rootJson.createNestedArray("barH_1");
+
+int sizeHist = 84;
 
 char buffer[1000];
 
@@ -227,9 +242,13 @@ void ActualisationTempsServeur()
   {
     MinutesActuel = "0" + MinutesActuel;
   }
+  if (timeinfo.tm_sec < 10)
+  {
+    SecondeActuel = "0" + SecondeActuel;
+  }
   SecondeActuel = timeinfo.tm_sec;
   //TempsMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
-  TempsActuel = HeureActuel + ":" + MinutesActuel;
+  TempsActuel = HeureActuel + ":" + MinutesActuel + ":" + SecondeActuel;
   resultHeure = HeureActuel.toInt();
   resultMinutes = MinutesActuel.toInt();
   resultSeconde = SecondeActuel.toInt();
@@ -346,9 +365,106 @@ void Message_Recu(int NombreMessagesRecu)
   }
 }
 
+void saveHistory()
+{
+  File historyFile = SPIFFS.open(HISTORY_FILE, "w");
+  serializeJson(rootJson, historyFile);
+  historyFile.close();
+}
+
+void calcStat(){
+  float statT_1[7] = {-999,-999,-999,-999,-999,-999,-999};
+  float statH_1[7] = {-999,-999,-999,-999,-999,-999,-999};
+  int nbClass = 7;  // Nombre de classes - Number of classes                         
+  int currentClass = 0;
+  int sizeClass = T_1.size() / nbClass;  // 2
+  double temp;
+  //
+  if ( T_1.size() >= sizeHist ) {
+    //Serial.print("taille classe ");Serial.println(sizeClass);
+    //Serial.print("taille historique ");Serial.println(hist_t.size());
+    for ( int k = 0 ; k < T_1.size() ; k++ ) {
+      temp = rootJson["T_1"][k];
+      if ( statT_1[currentClass] == -999 ) {
+        statT_1[ currentClass ] = temp;
+      } else {
+        statT_1[ currentClass ] = ( statT_1[ currentClass ] + temp ) / 2;
+      }
+      temp = rootJson["H_1"][k];
+      if ( statH_1[currentClass] == -999 ) {
+        statH_1[ currentClass ] = temp;
+      } else {
+        statH_1[ currentClass ] = ( statH_1[ currentClass ] + temp ) / 2;
+      }
+         
+      if ( ( k + 1 ) > sizeClass * ( currentClass + 1 ) ) {
+        //Serial.print("k ");Serial.print(k + 1);Serial.print(" Cellule statTemp = ");Serial.println(statTemp[ currentClass ]);
+        currentClass++;
+      } else {
+        //Serial.print("k ");Serial.print(k + 1);Serial.print(" < ");Serial.println(sizeClass * currentClass);
+      }
+    }
+    
+    Serial.println("Histogramme de temperature :"); 
+    for ( int i = 0 ; i < nbClass ; i++ ) {
+      Serial.print(statT_1[i]);Serial.print('|');
+    }
+    Serial.println("Histogramme d'humidite :"); 
+    for ( int i = 0 ; i < nbClass ; i++ ) {
+      Serial.print(statH_1[i]);Serial.print('|');
+    }
+    Serial.print("");
+    if ( barT_1.size() == 0 ) {
+      for ( int k = 0 ; k < nbClass ; k++ ) { 
+        barT_1.add(statT_1[k]);
+        barH_1.add(statH_1[k]);
+      }  
+    } else {
+      for ( int k = 0 ; k < nbClass ; k++ ) { 
+        barT_1[k] = statT_1[k];
+        barH_1[k] = statH_1[k];
+      }  
+    }
+  }
+}
+
+void loadHistory()
+{
+  File file = SPIFFS.open(HISTORY_FILE, "r");
+  if (!file)
+  {
+    Serial.println("Aucun historique existe - No History Exist");
+  }
+  else
+  {
+    size_t size = file.size();
+    if (size == 0)
+    {
+      Serial.println("Fichier historique vide - History file empty !");
+    }
+    else
+    {
+      std::unique_ptr<char[]> buf(new char[size]);
+      file.readBytes(buf.get(), size);
+      DynamicJsonDocument schedulesjson(1300);
+      schedulesjson.to<JsonArray>();
+      DeserializationError err = deserializeJson(schedulesjson, buf.get());
+      if (err)
+      {
+        Serial.println("Impossible de lire le JSON - Impossible to read JSON file");
+      }
+      else
+      {
+        Serial.println("Historique chargé");
+        serializeJson(schedulesjson, Serial);
+      }
+    }
+    file.close();
+  }
+}
+
 void setup()
 {
-  digitalWrite(BUILTIN_LED, HIGH);
 
   Serial.begin(115200);
   Serial.println("\n");
@@ -373,11 +489,9 @@ void setup()
   digitalWrite(Relais_7, HIGH);
   digitalWrite(Relais_8, HIGH);
 
-  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_R, OUTPUT);
   pinMode(LED_G, OUTPUT);
 
-  digitalWrite(LED_BUILTIN, HIGH);
   digitalWrite(LED_R, HIGH);
   digitalWrite(LED_G, HIGH);
 
@@ -415,25 +529,13 @@ void setup()
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
   {
     Serial.println("Ecran non branché");
-    digitalWrite(LED_R, HIGH);
-    delay(1000);
-    digitalWrite(LED_R, LOW);
-    delay(1000);
-    digitalWrite(LED_R, HIGH);
-    delay(1000);
-    digitalWrite(LED_R, LOW);
-    delay(1000);
-    digitalWrite(LED_R, HIGH);
-    delay(1000);
-    digitalWrite(LED_R, LOW);
+    playFailed();
   }
 
   if (!bme.begin(0x76, &Wire))
   {
     Serial.println("Capteur interne non branché");
-    digitalWrite(LED_R, HIGH);
-    delay(1000);
-    digitalWrite(LED_R, LOW);
+    playFailed();
   }
 
   display.clearDisplay();
@@ -489,6 +591,10 @@ void setup()
 
   server.on("/favicon.svg", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/favicon.svg", "image/svg");
+  });
+
+  server.on("/graph_temp.json", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/history_file", "text/json");
   });
 
   //////----------SERVEUR---------//////
@@ -624,7 +730,6 @@ void setup()
   AsyncElegantOTA.begin(&server);
   server.begin();
 
-  digitalWrite(BUILTIN_LED, LOW);
   digitalWrite(LED_R, LOW);
   digitalWrite(LED_G, HIGH);
 
@@ -632,16 +737,7 @@ void setup()
 
   Serial.println(BOT_TOKEN);
   Serial.println(USER_ID);
-
-  // JsonArray Temps = rootJson.createNestedArray("Temps"); // stockage temps actuel
-
-  // JsonArray T_1 = rootJson.createNestedArray("T_1"); // température dht
-  // JsonArray T_2 = rootJson.createNestedArray("T_2");
-  // JsonArray T_3 = rootJson.createNestedArray("T_3"); // température ds1820b
-  // JsonArray T_4 = rootJson.createNestedArray("T_4");
-
-  // JsonArray H_1 = rootJson.createNestedArray("H_1"); // humidité
-  // JsonArray H_2 = rootJson.createNestedArray("H_2");
+  Serial.println(USER_ID2);
 
   serializeJson(rootJson, buffer);
 
@@ -668,6 +764,24 @@ void loop()
       NombreMessagesRecu = bot->getUpdates(bot->last_message_received + 1);
     }
     DerniereRequeteBot = millis();
+  }
+
+  if (millis() - intervaleHistorique > intervaleRoutine)
+  {
+    intervaleHistorique = millis();
+    Temps.add(TempsActuel);
+    T_1[1] = ValeurT_1;
+    H_1[1] = ValeurH_1;
+    P_1[1] = ValeurP;
+    if (Temps.size() > sizeHist)
+    {
+      //Serial.println("efface anciennes mesures");
+      Temps.remove(0);
+      T_1.remove(0);
+      H_1.remove(0);
+      P_1.remove(0);
+    }
+    saveHistory();
   }
 
   if (millis() > intervaleRoutine + PrecedentTestRoutine)
@@ -725,16 +839,16 @@ void loop()
     }
     if (resultHeure == 20)
     {
-      if (resultMinutes == 2 && resultSeconde < 5)
-      {
-        ESP.restart();
-      }
+      // if (resultMinutes == 2 && resultSeconde < 5)
+      // {
+      //   ESP.restart();
+      // }
     }
     if (resultHeure >= 8 && resultHeure < 20) //Journée
     {
       digitalWrite(Relai_Rampe_LED, LOW);
     }
-    if (resultHeure < 8 && resultHeure >= 20) //Nuit
+    else if (resultHeure < 8 && resultHeure >= 20) //Nuit
     {
       digitalWrite(Relai_Rampe_LED, HIGH);
     }

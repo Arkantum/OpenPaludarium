@@ -387,43 +387,45 @@
             firstStart = false;
             $.getJSON('/graph_temp.json', function (json) {
               //console.log("Mesures envoyees : " + JSON.stringify(data) + "|" + data.t + "|" + data.h + "|" + data.pa) ;
-              var _dataT = [];
-              var _dataPA = [];
-              var _dataBarTemp = [];
-              var _dataBarPA = [];
+              var _dataT_1 = [];
+              var _dataP_1 = [];
+              var _dataBarT_1 = [];
+              var _dataBarP_1 = [];
 
               // Data line chart  
-              for (var i = 0; i < json.timestamp.length; i++) {
-                var d = new Date(json.timestamp[i] * 1000);
-                _dataT.push(
+              for (var i = 0; i < json.Temps.length; i++) {
+                var heure = json.Temps[i].substring(0, 1);
+                var minute = json.Temps[i].substring(3, 4);
+                var seconde = json.Temps[i].substring(5, 6);
+                _dataT_1.push(
                   [
-                    [d.getHours(), d.getMinutes(), d.getSeconds()],
-                    json.t[i],
-                    json.h[i]
+                    [heure, minute, seconde],
+                    json.T_1[i],
+                    json.H_1[i]
                   ]
                 )
-                _dataPA.push(
+                _dataP_1.push(
                   [
-                    [d.getHours(), d.getMinutes(), d.getSeconds()],
-                    json.pa[i]
+                    [heure, minute, seconde],
+                    json.P_1[i]
                   ]
                 )
               }
-              for (var i = 0; i < json.bart.length; i++) {
+              for (var i = 0; i < json.barT_1.length; i++) {
                 _dataBarTemp.push(
                   [
                     i - 7 + "h",
-                    json.bart[i],
-                    json.barh[i]
+                    json.barT_1[i],
+                    json.barH_1[i]
                   ]
                 )
               }
 
               dataGaugePA.setValue(0, 0, 'mbar');
-              dataGaugePA.setValue(0, 1, json.pa[0]);
-              dataChartTemp.addRows(_dataT);
-              dataChartPA.addRows(_dataPA); z
-              dataBarTemp.addRows(_dataBarTemp);
+              dataGaugePA.setValue(0, 1, json.P_1[0]);
+              dataChartTemp.addRows(_dataT_1);
+              dataChartPA.addRows(_dataP_1);
+              dataBarTemp.addRows(_dataBarT_1);
 
               // Efface les anciennes valeurs - Erase old data
               var nbRec = dataChartTemp.getNumberOfRows() - json.timestamp.length;
